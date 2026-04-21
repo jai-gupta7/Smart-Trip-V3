@@ -1,0 +1,8 @@
+node_modules/
+.edge-test-profile/
+*.log
+.env.local
+.env.*.local
+first-mile-test.png
+google-map-test.png
+smart-trip-*.png
