@@ -1699,6 +1699,12 @@ const SmartTripCreationPage = () => {
     toast.success('Trip closed successfully.');
   };
 
+  const handleAddPrqToOnRouteVehicle = (route) => {
+    if (!route) return;
+
+    toast.success(`Add PRQ flow opened for ${route.routeName}.`);
+  };
+
   const addVehicleDisabled =
     !activeTrip?.vehicleConstraint ||
     availableAdditionalVehicles.length === 0 ||
@@ -1994,6 +2000,17 @@ const SmartTripCreationPage = () => {
                           <p className="text-muted-foreground text-[9px] uppercase tracking-wider font-semibold">Cash Collected</p>
                           <p className="mt-0.5 font-semibold">{item.cashCollectedActual} <span className="text-muted-foreground font-normal text-[10px]">/ {item.cashCollectedProjected}</span></p>
                         </div>
+                      </div>
+                      <div className="mt-4 flex justify-end border-t border-dashed pt-4">
+                        <Button
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleAddPrqToOnRouteVehicle(item);
+                          }}
+                        >
+                          Add PRQ
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
