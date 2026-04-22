@@ -452,6 +452,39 @@ const RunningHoursApprovalDialog = ({
   </Dialog>
 );
 
+const RemoveCnDialog = ({ open, onOpenChange, stop, reason, onReasonChange, onSubmit }) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-[520px]">
+      <DialogHeader>
+        <DialogTitle>Remove CN From Route</DialogTitle>
+        <DialogDescription>
+          {stop ? `Provide a reason before removing ${stop.id} from the recommended route.` : ''}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-3">
+        <Label htmlFor="remove-cn-reason">Reason for removal</Label>
+        <Textarea
+          id="remove-cn-reason"
+          value={reason}
+          onChange={(event) => onReasonChange(event.target.value)}
+          placeholder="Explain why this CN is being removed from the route."
+          rows={4}
+        />
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button disabled={!reason.trim()} onClick={onSubmit}>
+          Remove CN
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
 const VehicleSourcingPanel = ({
   trip,
   onAutoAssign,
@@ -920,7 +953,7 @@ const TripRouteDetail = ({
                                   <p className="font-semibold">{stop.id}</p>
                                   <p className="truncate text-sm text-muted-foreground">{stop.address}</p>
                                 </div>
-                                <Button variant="destructive" size="sm" onClick={() => onDeleteStop(stop.id)}>
+                                <Button variant="destructive" size="sm" onClick={() => onDeleteStop(stop)}>
                                   <Trash2 className="mr-1.5 h-4 w-4" />
                                   Delete
                                 </Button>
@@ -1231,6 +1264,11 @@ const SmartTripCreationPage = () => {
     selectedId: '',
     reason: '',
   });
+  const [removeStopDialog, setRemoveStopDialog] = useState({
+    open: false,
+    stop: null,
+    reason: '',
+  });
   const [runningHoursDialogOpen, setRunningHoursDialogOpen] = useState(false);
   const [runningHoursReason, setRunningHoursReason] = useState('');
   const [addVehicleDialogOpen, setAddVehicleDialogOpen] = useState(false);
@@ -1441,15 +1479,52 @@ const SmartTripCreationPage = () => {
     toast.success('Route approved with running-hours exception.');
   };
 
-  const handleDeleteStop = (stopId) => {
+  const removeStopFromTrip = (stopId, removalReason = '') => {
     if (!activeTrip) return;
 
     updateTrip(activeTrip.id, (trip) => ({
       ...trip,
       stops: trip.stops.filter((stop) => stop.id !== stopId),
+      removedStopLogs: removalReason
+        ? [
+            ...(trip.removedStopLogs || []),
+            {
+              stopId,
+              reason: removalReason,
+              removedAt: new Date().toISOString(),
+            },
+          ]
+        : trip.removedStopLogs,
     }));
+  };
+
+  const handleDeleteStop = (stop) => {
+    if (!stop) return;
+
+    if (String(stop.id || '').startsWith('CN')) {
+      setRemoveStopDialog({
+        open: true,
+        stop,
+        reason: '',
+      });
+      return;
+    }
+
+    removeStopFromTrip(stop.id);
 
     toast.success('Touchpoint deleted from route.');
+  };
+
+  const handleConfirmCnRemoval = () => {
+    if (!removeStopDialog.stop || !removeStopDialog.reason.trim()) return;
+
+    removeStopFromTrip(removeStopDialog.stop.id, removeStopDialog.reason.trim());
+    setRemoveStopDialog({
+      open: false,
+      stop: null,
+      reason: '',
+    });
+    toast.success('CN removed from route.');
   };
 
   const reorderVisibleStops = (trip, sourceStopId, targetStopId) => {
@@ -1988,6 +2063,23 @@ const SmartTripCreationPage = () => {
         onSelect={setSelectedAdditionalVehicleId}
         onSubmit={handleAddSupportVehicle}
         maxVehicleSize={activeTrip?.vehicleConstraint?.maxVehicleSize || 'Allowed size'}
+      />
+
+      <RemoveCnDialog
+        open={removeStopDialog.open}
+        onOpenChange={(open) =>
+          setRemoveStopDialog((currentDialog) => ({
+            ...currentDialog,
+            open,
+            ...(open ? {} : { stop: null, reason: '' }),
+          }))
+        }
+        stop={removeStopDialog.stop}
+        reason={removeStopDialog.reason}
+        onReasonChange={(reason) =>
+          setRemoveStopDialog((currentDialog) => ({ ...currentDialog, reason }))
+        }
+        onSubmit={handleConfirmCnRemoval}
       />
     </div>
   );
