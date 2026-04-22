@@ -9,9 +9,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { MapPin, ArrowUpDown, Edit } from 'lucide-react';
+import { MapPin, ArrowUpDown, Edit, AlertTriangle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { formatDateTime } from '@/utils/formatters';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'slot', direction: 'asc' });
@@ -57,6 +63,7 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
   );
 
   return (
+    <TooltipProvider>
     <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
@@ -66,10 +73,11 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
               <SortableHead label="Customer Name" sortKey="customerName" />
               <SortableHead label="Location" sortKey="locationName" />
               <SortableHead label="Slot" sortKey="slot" />
-              <SortableHead label="Operator" sortKey="operatorName" />
+              <SortableHead label="Operator Contact" sortKey="operatorName" />
               <SortableHead label="Vehicle" sortKey="vehicle" />
-              <SortableHead label="Driver" sortKey="driver" />
+              <SortableHead label="Driver Contact" sortKey="driver" />
               <SortableHead label="POC" sortKey="pocName" />
+              <TableHead>Flag</TableHead>
               <SortableHead label="Status" sortKey="status" />
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -99,18 +107,46 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
                   <TableCell className="tabular-nums text-muted-foreground whitespace-nowrap">
                     {formatDateTime(pickup.slot)}
                   </TableCell>
-                  <TableCell>{pickup.operatorName}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm">{pickup.operatorContact?.name}</span>
+                      <span className="text-xs text-muted-foreground">{pickup.operatorContact?.phone}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className="text-sm border bg-muted/30 px-2 py-0.5 rounded-md whitespace-nowrap">
                       {pickup.vehicle}
                     </span>
                   </TableCell>
-                  <TableCell>{pickup.driver}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm">{pickup.driverContact?.name}</span>
+                      <span className="text-xs text-muted-foreground">{pickup.driverContact?.phone}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="text-sm">{pickup.poc?.name}</span>
                       <span className="text-xs text-muted-foreground">{pickup.poc?.phone}</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {pickup.yellowFlagReason ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-amber-500 transition-colors hover:bg-amber-500/10"
+                            aria-label="View flag reason"
+                          >
+                            <AlertTriangle className="w-4 h-4 fill-current" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">{pickup.yellowFlagReason}</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={pickup.status} />
@@ -130,7 +166,7 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                   No pickups found for the selected filters.
                 </TableCell>
               </TableRow>
@@ -139,6 +175,7 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
         </Table>
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 

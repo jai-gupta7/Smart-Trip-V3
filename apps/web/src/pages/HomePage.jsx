@@ -52,7 +52,7 @@ const HomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { icon: Package, title: "First Mile", desc: "Manage scheduled and potential pickups with automated E-waybill verification." },
-              { icon: Truck, title: "Last Mile", desc: "Handle appointment CNs, resolve yellow flags, and ensure timely deliveries." },
+              { icon: Truck, title: "Last Mile", desc: "Handle appointment CNs, review flagged shipments inline, and ensure timely deliveries." },
               { icon: Map, title: "Smart Routing", desc: "AI-driven consolidation and route optimization for maximum efficiency." },
               { icon: ShieldCheck, title: "Real-time Tracking", desc: "Monitor loading progress and on-route movement with live updates." }
             ].map((feature, i) => (

@@ -31,10 +31,16 @@ const TableShell = ({ children }) => (
   </div>
 );
 
+const getLocationLabel = (location) => {
+  if (!location) return 'N/A';
+  if (typeof location === 'string') return location;
+  return location?.name || location?.label || 'N/A';
+};
+
 const LocationCell = ({ location, onViewMap, withMapAction = false }) => (
   <div className="flex items-center gap-2 max-w-[220px]">
-    <span className="truncate" title={location?.name}>
-      {location?.name || 'N/A'}
+    <span className="truncate" title={getLocationLabel(location)}>
+      {getLocationLabel(location)}
     </span>
     {withMapAction && location ? (
       <Button
@@ -66,6 +72,25 @@ const EditCell = ({ onClick }) => (
   </TableCell>
 );
 
+const FlagCell = ({ reason }) => (
+  reason ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-amber-500 transition-colors hover:bg-amber-500/10"
+          aria-label="View flag reason"
+        >
+          <AlertTriangle className="w-4 h-4 fill-current" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{reason}</TooltipContent>
+    </Tooltip>
+  ) : (
+    <span className="text-muted-foreground">-</span>
+  )
+);
+
 export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
   <TooltipProvider>
     <TableShell>
@@ -79,9 +104,12 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
             <TableHead>Customer Name</TableHead>
             <TableHead>Customer Location</TableHead>
             <TableHead>POC Contact</TableHead>
+            <TableHead>Operator Contact</TableHead>
+            <TableHead>Driver Contact</TableHead>
             <TableHead>Expected Load</TableHead>
             <TableHead>Call Status</TableHead>
             <TableHead>PRQ Status</TableHead>
+            <TableHead>Flag</TableHead>
             <TableHead className="text-center">E-way Bill Count</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
@@ -101,10 +129,19 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
                 <TableCell>
                   <ContactCell contact={pickup.poc} />
                 </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.operatorContact} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.driverContact} />
+                </TableCell>
                 <TableCell className="whitespace-nowrap">{pickup.expectedLoad}</TableCell>
                 <TableCell className="text-muted-foreground min-w-[170px]">{pickup.callStatus}</TableCell>
                 <TableCell>
                   <StatusBadge status={pickup.prqStatus} />
+                </TableCell>
+                <TableCell>
+                  <FlagCell reason={pickup.yellowFlagReason} />
                 </TableCell>
                 <TableCell className="text-center">{pickup.ewayBillCount}</TableCell>
                 <EditCell onClick={() => onEdit(pickup)} />
@@ -112,7 +149,7 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={15} className="h-24 text-center text-muted-foreground">
                 No potential pickups available.
               </TableCell>
             </TableRow>
@@ -123,7 +160,7 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
   </TooltipProvider>
 );
 
-export const RequestedPickupsTable = ({ data, onEdit }) => (
+export const RequestedPickupsTable = ({ data, onEdit, onViewMap }) => (
   <TooltipProvider>
     <TableShell>
       <Table>
@@ -133,6 +170,8 @@ export const RequestedPickupsTable = ({ data, onEdit }) => (
             <TableHead>Customer</TableHead>
             <TableHead>Customer Address</TableHead>
             <TableHead>Contact Name &amp; No.</TableHead>
+            <TableHead>Operator Contact</TableHead>
+            <TableHead>Driver Contact</TableHead>
             <TableHead>Pickup Slot</TableHead>
             <TableHead>Est. Weight</TableHead>
             <TableHead>Load Type</TableHead>
@@ -148,31 +187,24 @@ export const RequestedPickupsTable = ({ data, onEdit }) => (
               <TableRow key={pickup.id}>
                 <TableCell className="font-medium whitespace-nowrap">{pickup.prqId}</TableCell>
                 <TableCell>{pickup.customer}</TableCell>
-                <TableCell className="min-w-[180px]">{pickup.customerAddress?.name}</TableCell>
+                <TableCell>
+                  <LocationCell location={pickup.customerAddress} onViewMap={onViewMap} withMapAction />
+                </TableCell>
                 <TableCell>
                   <ContactCell contact={pickup.contact} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.operatorContact} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.driverContact} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{formatDateTime(pickup.pickupSlot)}</TableCell>
                 <TableCell className="whitespace-nowrap">{pickup.estimatedWeight}</TableCell>
                 <TableCell>{pickup.loadType}</TableCell>
                 <TableCell>{pickup.prqMode}</TableCell>
                 <TableCell>
-                  {pickup.yellowFlagReason ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-amber-500 transition-colors hover:bg-amber-500/10"
-                          aria-label="View flag reason"
-                        >
-                          <AlertTriangle className="w-4 h-4 fill-current" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">{pickup.yellowFlagReason}</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  <FlagCell reason={pickup.yellowFlagReason} />
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={pickup.status} />
@@ -182,8 +214,8 @@ export const RequestedPickupsTable = ({ data, onEdit }) => (
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
-                No requested pickups available.
+              <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+                No regular pickups available.
               </TableCell>
             </TableRow>
           )}
@@ -195,84 +227,129 @@ export const RequestedPickupsTable = ({ data, onEdit }) => (
 
 export const FTLPickupsTable = ({
   data,
-  vehicleSizeOptions,
-  vehicleSourceOptions,
+  statusOptions,
   onUpdate,
+  onViewMap,
+  onTriggerMarketSourcing,
 }) => (
-  <TableShell>
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>PRQ ID</TableHead>
-          <TableHead>Customer</TableHead>
-          <TableHead>Customer Address</TableHead>
-          <TableHead>Contact Name &amp; No.</TableHead>
-          <TableHead>Pickup Slot</TableHead>
-          <TableHead>Select Vehicle Size</TableHead>
-          <TableHead>POC Contact</TableHead>
-          <TableHead>Requestor Name &amp; Contact Number</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Select Vehicle Source</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.length > 0 ? (
-          data.map((pickup) => (
-            <TableRow key={pickup.id}>
-              <TableCell className="font-medium whitespace-nowrap">{pickup.prqId}</TableCell>
-              <TableCell>{pickup.customer}</TableCell>
-              <TableCell className="min-w-[180px]">{pickup.customerAddress}</TableCell>
-              <TableCell>
-                <ContactCell contact={pickup.contact} />
-              </TableCell>
-              <TableCell className="whitespace-nowrap">{formatDateTime(pickup.pickupSlot)}</TableCell>
-              <TableCell className="min-w-[190px]">
-                <Select value={pickup.vehicleSize} onValueChange={(value) => onUpdate(pickup.id, 'vehicleSize', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleSizeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </TableCell>
-              <TableCell>
-                <ContactCell contact={pickup.pocContact} />
-              </TableCell>
-              <TableCell>
-                <ContactCell contact={pickup.requestor} />
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={pickup.status} />
-              </TableCell>
-              <TableCell className="min-w-[220px]">
-                <Select value={pickup.vehicleSource} onValueChange={(value) => onUpdate(pickup.id, 'vehicleSource', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleSourceOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+  <TooltipProvider>
+    <TableShell>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>PRQ ID</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Customer Address</TableHead>
+            <TableHead>Contact Name &amp; No.</TableHead>
+            <TableHead>Pickup Slot</TableHead>
+            <TableHead>Requested Vehicle</TableHead>
+            <TableHead>Select Vehicle Source</TableHead>
+            <TableHead>POC Contact</TableHead>
+            <TableHead>Requestor Name &amp; Contact Number</TableHead>
+            <TableHead>Operator Contact</TableHead>
+            <TableHead>Driver Contact</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Flag</TableHead>
+            <TableHead className="text-right">Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.length > 0 ? (
+            data.map((pickup) => (
+              <TableRow key={pickup.id}>
+                <TableCell className="font-medium whitespace-nowrap">{pickup.prqId}</TableCell>
+                <TableCell>{pickup.customer}</TableCell>
+                <TableCell>
+                  <LocationCell location={pickup.customerAddress} onViewMap={onViewMap} withMapAction />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.contact} />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">{formatDateTime(pickup.pickupSlot)}</TableCell>
+                <TableCell className="whitespace-nowrap">{pickup.requestedVehicleDetail}</TableCell>
+                <TableCell className="min-w-[220px]">
+                  <div className="flex flex-col">
+                    <Select
+                      value={pickup.selectedVehicleSource || undefined}
+                      onValueChange={(value) => onUpdate(pickup.id, 'selectedVehicleSource', value)}
+                      disabled={!pickup.recommendedVehicleAvailable}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="No vehicle available" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pickup.vehicleSourceOptions?.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground">{pickup.recommendedVehicleSource}</span>
+                    {pickup.marketSourcingRequested ? (
+                      <span className="text-xs text-muted-foreground">
+                        Reason: {pickup.marketSourcingReason}
+                      </span>
+                    ) : null}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.pocContact} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.requestor} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.operatorContact} />
+                </TableCell>
+                <TableCell>
+                  <ContactCell contact={pickup.driverContact} />
+                </TableCell>
+                <TableCell className="min-w-[190px]">
+                  <Select value={pickup.status} onValueChange={(value) => onUpdate(pickup.id, 'status', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Update status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <FlagCell reason={pickup.yellowFlagReason} />
+                </TableCell>
+                <TableCell className="text-right">
+                  {!pickup.recommendedVehicleAvailable ? (
+                    pickup.marketSourcingRequested ? (
+                      <span className="text-sm text-muted-foreground">Request sent</span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onTriggerMarketSourcing(pickup)}
+                      >
+                        Trigger Market Sourcing
+                      </Button>
+                    )
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Auto selected</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={14} className="h-24 text-center text-muted-foreground">
+                No FTL pickups available.
               </TableCell>
             </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-              No FTL pickups available.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
-  </TableShell>
+          )}
+        </TableBody>
+      </Table>
+    </TableShell>
+  </TooltipProvider>
 );

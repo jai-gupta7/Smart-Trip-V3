@@ -1,5 +1,44 @@
 // Dummy data service for Om Logistics Trip Management System
 
+export const operatorContactDirectory = {
+  'Ravi Operator': { name: 'Ravi Operator', phone: '+91 98111 20001', branch: 'Pune Control Tower' },
+  'Amit Ops': { name: 'Amit Ops', phone: '+91 98111 20002', branch: 'Mumbai Planning Desk' },
+  'Neha Desk': { name: 'Neha Desk', phone: '+91 98111 20003', branch: 'Delhi Operations Desk' },
+  'Vikram Desk': { name: 'Vikram Desk', phone: '+91 98111 20004', branch: 'West Region Control' },
+};
+
+export const driverContactDirectory = {
+  'Rajesh Kumar': { name: 'Rajesh Kumar', phone: '+91 98991 11001', branch: 'Delhi Hub' },
+  'Amit Sharma': { name: 'Amit Sharma', phone: '+91 98991 11002', branch: 'Mumbai Hub' },
+  'Priya Patel': { name: 'Priya Patel', phone: '+91 98991 11003', branch: 'Navi Mumbai Hub' },
+  'Vikram Singh': { name: 'Vikram Singh', phone: '+91 98991 11004', branch: 'Thane Hub' },
+  'Sneha Desai': { name: 'Sneha Desai', phone: '+91 98991 11005', branch: 'Pune Hub' },
+  'Arjun Reddy': { name: 'Arjun Reddy', phone: '+91 98991 11006', branch: 'Nashik Hub' },
+  'Kavita Nair': { name: 'Kavita Nair', phone: '+91 98991 11007', branch: 'Pune Hub' },
+  'Suresh Iyer': { name: 'Suresh Iyer', phone: '+91 98991 11008', branch: 'Pune Hub' },
+  'Deepak Joshi': { name: 'Deepak Joshi', phone: '+91 98991 11009', branch: 'Pune Hub' },
+  'Meera Kulkarni': { name: 'Meera Kulkarni', phone: '+91 98991 11010', branch: 'Pune Hub' },
+  'Ravi Menon': { name: 'Ravi Menon', phone: '+91 98991 11011', branch: 'Mumbai Hub' },
+  'Anjali Rao': { name: 'Anjali Rao', phone: '+91 98991 11012', branch: 'Mumbai Hub' },
+  'Karan Mehta': { name: 'Karan Mehta', phone: '+91 98991 11013', branch: 'Mumbai Hub' },
+  'Pooja Gupta': { name: 'Pooja Gupta', phone: '+91 98991 11014', branch: 'Mumbai Hub' },
+  'Nikhil Shah': { name: 'Nikhil Shah', phone: '+91 98991 11015', branch: 'Mumbai Hub' },
+  'Sanjay Patil': { name: 'Sanjay Patil', phone: '+91 98991 11016', branch: 'Mumbai Hub' },
+  'Rekha Verma': { name: 'Rekha Verma', phone: '+91 98991 11017', branch: 'Mumbai Hub' },
+  'Anil Kumar': { name: 'Anil Kumar', phone: '+91 98991 11018', branch: 'Mumbai Hub' },
+};
+
+const operatorContacts = Object.values(operatorContactDirectory);
+const driverContacts = Object.values(driverContactDirectory);
+
+function getOperatorContact(operatorName, index = 0) {
+  return operatorContactDirectory[operatorName] || operatorContacts[index % operatorContacts.length];
+}
+
+function getDriverContact(driverName, index = 0) {
+  return driverContactDirectory[driverName] || driverContacts[index % driverContacts.length];
+}
+
 export const schedulePickupsData = [
   { id: '1', pickupId: 'SP-2847', customerName: 'Tata Motors', location: { name: 'Pune, Maharashtra', lat: 18.5204, lng: 73.8567 }, slot: '2026-04-21T09:30', operatorName: 'Ravi Operator', vehicle: 'MH-12-AB-1234 (14ft)', driver: 'Rajesh Kumar', poc: { name: 'Sanjay Dutt', phone: '+91 9876543210' }, status: 'Confirmed' },
   { id: '2', pickupId: 'SP-2848', customerName: 'Mahindra Logistics', location: { name: 'Mumbai, Maharashtra', lat: 19.0760, lng: 72.8777 }, slot: '2026-04-21T10:15', operatorName: 'Amit Ops', vehicle: 'MH-02-CD-5678 (17ft)', driver: 'Amit Sharma', poc: { name: 'Priya Singh', phone: '+91 9876543211' }, status: 'Pending' },
@@ -19,7 +58,13 @@ export const schedulePickupsData = [
   { id: '16', pickupId: 'SP-2862', customerName: 'Dr. Reddy\'s Labs', location: { name: 'Malad, Mumbai', lat: 19.1860, lng: 72.8485 }, slot: '2026-04-22T15:00', operatorName: 'Ravi Operator', vehicle: 'MH-01-EF-2345 (24ft)', driver: 'Sanjay Patil', poc: { name: 'Arun Jaitley', phone: '+91 9876543225' }, status: 'Pending' },
   { id: '17', pickupId: 'SP-2863', customerName: 'Lupin Pharma', location: { name: 'Kandivali, Mumbai', lat: 19.2047, lng: 72.8364 }, slot: '2026-04-22T16:30', operatorName: 'Vikram Desk', vehicle: 'MH-03-GH-6789 (17ft)', driver: 'Rekha Verma', poc: { name: 'Geeta Phogat', phone: '+91 9876543226' }, status: 'Confirmed' },
   { id: '18', pickupId: 'SP-2864', customerName: 'Biocon Limited', location: { name: 'Borivali, Mumbai', lat: 19.2307, lng: 72.8567 }, slot: '2026-04-23T09:00', operatorName: 'Amit Ops', vehicle: 'MH-04-IJ-0123 (32ft)', driver: 'Anil Kumar', poc: { name: 'Ramesh Powar', phone: '+91 9876543227' }, status: 'Cancelled' },
-];
+].map((item, index) => ({
+  ...item,
+  operatorContact: getOperatorContact(item.operatorName, index),
+  driverContact: getDriverContact(item.driver, index),
+  yellowFlagReason:
+    index % 5 === 0 ? 'Contact detail mismatch detected during dispatch readiness check.' : '',
+}));
 
 export const getSchedulePickups = (filters = {}) => {
   let filteredData = [...schedulePickupsData];
@@ -77,7 +122,21 @@ export const drivers = [
   'Rekha Verma', 'Anil Kumar'
 ];
 
-export const pickupStatusOptions = ['Confirmed', 'Rescheduled', 'Cancelled'];
+const normalizePotentialCallStatus = (status) => {
+  const normalizedStatus = (status || '').toLowerCase();
+
+  if (normalizedStatus.includes('completed') || normalizedStatus.includes('auto')) {
+    return 'Auto Confirmed';
+  }
+
+  if (normalizedStatus.includes('pending') || normalizedStatus.includes('progress') || normalizedStatus.includes('scheduled')) {
+    return 'CS Pending';
+  }
+
+  return 'Branch Required';
+};
+
+export const pickupStatusOptions = ['Confirmed', 'Pending Confirmation', 'Rescheduled', 'Cancelled'];
 
 export const potentialPickups = [
   {
@@ -248,7 +307,21 @@ export const potentialPickups = [
     prqStatus: 'Rescheduled',
     ewayBillCount: 4,
   },
-];
+].map((item, index) => {
+  const operatorContact = getOperatorContact(operators[index % operators.length], index);
+  const driverContact = getDriverContact(drivers[(index + 4) % drivers.length], index + 4);
+
+  return {
+    ...item,
+    operatorName: operatorContact.name,
+    operatorContact,
+    driver: driverContact.name,
+    driverContact,
+    callStatus: normalizePotentialCallStatus(item.callStatus),
+    yellowFlagReason:
+      index % 4 === 0 ? 'E-way bill and pickup window need manual review before dispatch.' : '',
+  };
+});
 
 export const requestedPickups = [
   {
@@ -407,7 +480,18 @@ export const requestedPickups = [
     yellowFlagReason: 'Request was modified twice after confirmation.',
     status: 'Cancelled',
   },
-];
+].map((item, index) => {
+  const operatorContact = getOperatorContact(operators[(index + 1) % operators.length], index + 1);
+  const driverContact = getDriverContact(drivers[(index + 7) % drivers.length], index + 7);
+
+  return {
+    ...item,
+    operatorName: operatorContact.name,
+    operatorContact,
+    driver: driverContact.name,
+    driverContact,
+  };
+});
 
 export const ftlVehicleSizeOptions = [
   '17 ft',
@@ -416,12 +500,85 @@ export const ftlVehicleSizeOptions = [
   '40 ft Container',
 ];
 
-export const ftlVehicleSourceOptions = [
-  'Pune Branch Vehicle - MH-12-AB-2468',
-  'Mumbai Branch Vehicle - MH-02-CD-1357',
-  'Nagpur Branch Vehicle - MH-49-EF-8642',
-  'Market Source',
+export const ftlStatusOptions = [
+  'Sourcing in Progress',
+  'Vehicle Allocated',
+  'Vehicle Reported',
+  'Loading in Progress',
+  'Dispatched',
+  'In Transit',
+  'Reached Destination',
+  'Delivered',
+  'POD Received',
 ];
+
+const normalizeFTLStatus = (status, hasRecommendedVehicle) => {
+  const normalizedStatus = (status || '').toLowerCase();
+
+  if (normalizedStatus.includes('pod')) {
+    return 'POD Received';
+  }
+
+  if (normalizedStatus.includes('deliver')) {
+    return 'Delivered';
+  }
+
+  if (normalizedStatus.includes('destination')) {
+    return 'Reached Destination';
+  }
+
+  if (normalizedStatus.includes('transit')) {
+    return 'In Transit';
+  }
+
+  if (normalizedStatus.includes('dispatch')) {
+    return 'Dispatched';
+  }
+
+  if (normalizedStatus.includes('loading')) {
+    return 'Loading in Progress';
+  }
+
+  if (normalizedStatus.includes('report')) {
+    return 'Vehicle Reported';
+  }
+
+  if (normalizedStatus.includes('allocat') || hasRecommendedVehicle) {
+    return 'Vehicle Allocated';
+  }
+
+  if (normalizedStatus.includes('sourcing') || normalizedStatus.includes('pending') || normalizedStatus.includes('awaiting')) {
+    return 'Sourcing in Progress';
+  }
+
+  return hasRecommendedVehicle ? 'Vehicle Allocated' : 'Sourcing in Progress';
+};
+
+const extractVehicleNumber = (vehicleSource) =>
+  vehicleSource?.match(/[A-Z]{2}-\d{2}-[A-Z]{2}-\d{4}/)?.[0] || '';
+
+const ftlVehicleSourceDirectory = {
+  '32 ft Container': [
+    'Pune Branch Vehicle - MH-12-AB-2468',
+    'Nagpur Branch Vehicle - MH-49-EF-8642',
+    'Nashik Branch Vehicle - MH-15-ZX-4217',
+  ],
+  '40 ft Container': [
+    'Mumbai Branch Vehicle - MH-02-CD-1357',
+    'Ahmedabad Branch Vehicle - GJ-01-LM-7843',
+    'Pune Branch Vehicle - MH-12-QR-5521',
+  ],
+  '20 ft': [
+    'Mumbai Branch Vehicle - MH-02-KL-4421',
+    'Nagpur Branch Vehicle - MH-49-PQ-1184',
+    'Pune Branch Vehicle - MH-12-TU-6305',
+  ],
+  '17 ft': [
+    'Pune Branch Vehicle - MH-12-RS-2408',
+    'Nagpur Branch Vehicle - MH-49-VW-7720',
+    'Mumbai Branch Vehicle - MH-02-YZ-9163',
+  ],
+};
 
 export const ftlPickups = [
   {
@@ -486,7 +643,7 @@ export const ftlPickups = [
     vehicleSize: '32 ft Container',
     pocContact: { name: 'Jayesh Parmar', phone: '+91 98980 44015' },
     requestor: { name: 'Rachna Sood', phone: '+91 98980 44105' },
-    status: 'Vehicle Allocated',
+    status: 'Dispatched',
     vehicleSource: 'Nagpur Branch Vehicle - MH-49-EF-8642',
   },
   {
@@ -512,7 +669,7 @@ export const ftlPickups = [
     vehicleSize: '40 ft Container',
     pocContact: { name: 'Raghu Hegde', phone: '+91 98980 44017' },
     requestor: { name: 'Neha Bansal', phone: '+91 98980 44107' },
-    status: 'Pending Vehicle',
+    status: 'In Transit',
     vehicleSource: 'Mumbai Branch Vehicle - MH-02-CD-1357',
   },
   {
@@ -525,7 +682,7 @@ export const ftlPickups = [
     vehicleSize: '17 ft',
     pocContact: { name: 'Prakash Rawat', phone: '+91 98980 44018' },
     requestor: { name: 'Ananya Seth', phone: '+91 98980 44108' },
-    status: 'Vehicle Allocated',
+    status: 'Reached Destination',
     vehicleSource: 'Pune Branch Vehicle - MH-12-AB-2468',
   },
   {
@@ -538,7 +695,7 @@ export const ftlPickups = [
     vehicleSize: '32 ft Container',
     pocContact: { name: 'Rakesh Chouhan', phone: '+91 98980 44019' },
     requestor: { name: 'Priyal Dave', phone: '+91 98980 44109' },
-    status: 'Awaiting Confirmation',
+    status: 'Delivered',
     vehicleSource: 'Market Source',
   },
   {
@@ -551,14 +708,247 @@ export const ftlPickups = [
     vehicleSize: '20 ft',
     pocContact: { name: 'Sai Charan', phone: '+91 98980 44020' },
     requestor: { name: 'Ira Malhotra', phone: '+91 98980 44110' },
-    status: 'Pending Vehicle',
+    status: 'POD Received',
     vehicleSource: 'Nagpur Branch Vehicle - MH-49-EF-8642',
   },
-];
+  {
+    id: 'FTL-9831',
+    prqId: 'PRQ-FTL-9831',
+    customer: 'Britannia Industries',
+    customerAddress: 'Ranjangaon, Maharashtra',
+    contact: { name: 'Sumeet Gokhale', phone: '+91 98980 44021' },
+    pickupSlot: '2026-04-24T17:15',
+    vehicleSize: '32 ft Container',
+    pocContact: { name: 'Omkar Jagtap', phone: '+91 98980 44031' },
+    requestor: { name: 'Shalini Purohit', phone: '+91 98980 44111' },
+    status: 'Dispatched',
+    vehicleSource: 'Pune Branch Vehicle - MH-12-AB-2468',
+  },
+  {
+    id: 'FTL-9832',
+    prqId: 'PRQ-FTL-9832',
+    customer: 'Pidilite Industries',
+    customerAddress: 'Vapi, Gujarat',
+    contact: { name: 'Rohan Mehta', phone: '+91 98980 44022' },
+    pickupSlot: '2026-04-25T07:45',
+    vehicleSize: '20 ft',
+    pocContact: { name: 'Hemant Joshi', phone: '+91 98980 44032' },
+    requestor: { name: 'Niharika Bose', phone: '+91 98980 44112' },
+    status: 'In Transit',
+    vehicleSource: 'Mumbai Branch Vehicle - MH-02-KL-4421',
+  },
+  {
+    id: 'FTL-9833',
+    prqId: 'PRQ-FTL-9833',
+    customer: 'Parle Products',
+    customerAddress: 'Neemrana, Rajasthan',
+    contact: { name: 'Vivek Saini', phone: '+91 98980 44023' },
+    pickupSlot: '2026-04-25T10:30',
+    vehicleSize: '17 ft',
+    pocContact: { name: 'Gaurav Dahiya', phone: '+91 98980 44033' },
+    requestor: { name: 'Mansi Kapoor', phone: '+91 98980 44113' },
+    status: 'Reached Destination',
+    vehicleSource: 'Pune Branch Vehicle - MH-12-RS-2408',
+  },
+  {
+    id: 'FTL-9834',
+    prqId: 'PRQ-FTL-9834',
+    customer: 'Colgate Palmolive',
+    customerAddress: 'Baddi, Himachal Pradesh',
+    contact: { name: 'Anurag Thakur', phone: '+91 98980 44024' },
+    pickupSlot: '2026-04-25T13:50',
+    vehicleSize: '40 ft Container',
+    pocContact: { name: 'Ritu Sood', phone: '+91 98980 44034' },
+    requestor: { name: 'Preeti Arora', phone: '+91 98980 44114' },
+    status: 'Delivered',
+    vehicleSource: 'Ahmedabad Branch Vehicle - GJ-01-LM-7843',
+  },
+].map((item, index) => {
+  const operatorContact = getOperatorContact(operators[(index + 2) % operators.length], index + 2);
+  const driverContact = getDriverContact(drivers[(index + 9) % drivers.length], index + 9);
+  const hasRecommendedVehicle = item.vehicleSource !== 'Market Source';
+  const vehicleSourceOptions = hasRecommendedVehicle
+    ? Array.from(new Set([item.vehicleSource, ...(ftlVehicleSourceDirectory[item.vehicleSize] || [])]))
+    : [];
+  const allocatedVehicleNumber = hasRecommendedVehicle
+    ? extractVehicleNumber(item.vehicleSource) || 'MH-12-AB-2468'
+    : 'No vehicle available';
 
-export const appointmentCNs = [];
-export const yellowFlagCNs = [];
-export const regularCNs = [];
+  return {
+    ...item,
+    requestedVehicleDetail: item.vehicleSize,
+    vehicleSourceOptions,
+    selectedVehicleSource: hasRecommendedVehicle ? item.vehicleSource : '',
+    allocatedVehicleNumber,
+    recommendedVehicleSource: hasRecommendedVehicle
+      ? 'Auto selected'
+      : 'No recommended branch vehicle available',
+    recommendedVehicleAvailable: hasRecommendedVehicle,
+    marketSourcingRequested: false,
+    marketSourcingReason: '',
+    operatorName: operatorContact.name,
+    operatorContact,
+    driver: driverContact.name,
+    driverContact,
+    status: normalizeFTLStatus(item.status, hasRecommendedVehicle),
+    yellowFlagReason:
+      index % 3 === 0 ? 'Vehicle source and loading slot overlap with an active dispatch.' : '',
+  };
+});
+
+export const appointmentCNs = [
+  {
+    id: 'CN-LM-1001',
+    cn: 'CN-LM-1001',
+    customer: 'Apollo Pharmacy',
+    customerAddress: 'Shop 18, Saket District Centre, New Delhi',
+    invoices: ['INV-AP-1001', 'INV-AP-1002'],
+    boxes: 24,
+    weight: '420 kg',
+    appointmentDate: '2026-04-22',
+    appointmentSlot: '10:00 - 11:00',
+    referenceNo: 'REF-DEL-8801',
+    vehicleSuggestion: '17 ft Closed Body',
+    operatorName: 'Neha Desk',
+    driver: 'Rajesh Kumar',
+    status: 'Confirmed',
+    yellowFlagReason: '',
+  },
+  {
+    id: 'CN-LM-1002',
+    cn: 'CN-LM-1002',
+    customer: 'Big Basket',
+    customerAddress: 'Plot 5, Sector 12 Market, Dwarka, New Delhi',
+    invoices: ['INV-BB-2401'],
+    boxes: 18,
+    weight: '295 kg',
+    appointmentDate: '2026-04-22',
+    appointmentSlot: '11:30 - 12:15',
+    referenceNo: 'REF-DEL-8802',
+    vehicleSuggestion: '20 ft Truck',
+    operatorName: 'Ravi Operator',
+    driver: 'Amit Sharma',
+    status: 'Pending Confirmation',
+    yellowFlagReason: 'Appointment window is close to route cutoff.',
+  },
+  {
+    id: 'CN-LM-1003',
+    cn: 'CN-LM-1003',
+    customer: 'Reliance Fresh',
+    customerAddress: 'Tower C, Sector 62 Commercial Block, Noida',
+    invoices: ['INV-RF-3301', 'INV-RF-3302', 'INV-RF-3303'],
+    boxes: 31,
+    weight: '510 kg',
+    appointmentDate: '2026-04-22',
+    appointmentSlot: '13:00 - 14:00',
+    referenceNo: 'REF-NCR-8803',
+    vehicleSuggestion: '17 ft Closed Body',
+    operatorName: 'Amit Ops',
+    driver: 'Priya Patel',
+    status: 'Confirmed',
+    yellowFlagReason: '',
+  },
+  {
+    id: 'CN-LM-1004',
+    cn: 'CN-LM-1004',
+    customer: 'Croma',
+    customerAddress: 'Mall Mile Complex, Sector 29, Gurugram',
+    invoices: ['INV-CR-9011', 'INV-CR-9012'],
+    boxes: 16,
+    weight: '260 kg',
+    appointmentDate: '2026-04-22',
+    appointmentSlot: '15:00 - 16:00',
+    referenceNo: 'REF-GGN-8804',
+    vehicleSuggestion: '32 ft Container',
+    operatorName: 'Vikram Desk',
+    driver: 'Vikram Singh',
+    status: 'Cancelled',
+    yellowFlagReason: 'Customer requested confirmation callback before dispatch.',
+  },
+].map((item, index) => ({
+  ...item,
+  deliveryLocation: item.customerAddress,
+  timeWindow: item.appointmentSlot,
+  invoiceCount: item.invoices.length,
+  operatorContact: getOperatorContact(item.operatorName, index),
+  driverContact: getDriverContact(item.driver, index),
+}));
+  
+export const regularCNs = [
+  {
+    id: 'CN-LM-2001',
+    cn: 'CN-LM-2001',
+    type: 'CN',
+    customer: 'Metro Wholesale',
+    customerAddress: 'Warehouse 3, Sector 15, Rohini, New Delhi',
+    invoices: ['INV-MW-2001', 'INV-MW-2002'],
+    boxes: 22,
+    weight: '420 kg',
+    priority: 'High',
+    operatorName: 'Ravi Operator',
+    driver: 'Kavita Nair',
+    status: 'Confirmed',
+    yellowFlagReason: '',
+  },
+  {
+    id: 'CN-LM-2002',
+    cn: 'CN-LM-2002',
+    type: 'CN',
+    customer: 'Medicure Plus',
+    customerAddress: '11/4 Main Vikas Marg, Laxmi Nagar, Delhi',
+    invoices: ['INV-MP-1210'],
+    boxes: 14,
+    weight: '280 kg',
+    priority: 'Medium',
+    operatorName: 'Neha Desk',
+    driver: 'Suresh Iyer',
+    status: 'Pending Confirmation',
+    yellowFlagReason: 'Delivery address geocode and typed address need confirmation.',
+  },
+  {
+    id: 'CN-LM-2003',
+    cn: 'CN-LM-2003',
+    type: 'CN',
+    customer: 'Urban Mart',
+    customerAddress: 'Plot 81, Sector 58 Industrial Area, Faridabad',
+    invoices: ['INV-UM-7781', 'INV-UM-7782', 'INV-UM-7783'],
+    boxes: 27,
+    weight: '510 kg',
+    priority: 'High',
+    operatorName: 'Amit Ops',
+    driver: 'Deepak Joshi',
+    status: 'Confirmed',
+    yellowFlagReason: '',
+  },
+  {
+    id: 'CN-LM-2004',
+    cn: 'CN-LM-2004',
+    type: 'CN',
+    customer: 'Daily Needs',
+    customerAddress: 'Transport Nagar Yard, Bahadurgarh, Haryana',
+    invoices: ['INV-DN-9091'],
+    boxes: 19,
+    weight: '360 kg',
+    priority: 'Low',
+    operatorName: 'Vikram Desk',
+    driver: 'Meera Kulkarni',
+    status: 'Cancelled',
+    yellowFlagReason: 'Consignee not reachable for unloading confirmation.',
+  },
+].map((item, index) => ({
+  ...item,
+  location: item.customerAddress,
+  volume: item.boxes ? `${(item.boxes / 8).toFixed(1)} m3` : 'N/A',
+  deliveryTimeWindow:
+    ['09:30 - 10:30', '11:00 - 12:00', '13:15 - 14:15', '15:30 - 16:10'][index] || 'Flexible',
+  invoiceCount: item.invoices.length,
+  operatorContact: getOperatorContact(item.operatorName, index + 4),
+  driverContact: getDriverContact(item.driver, index + 4),
+}));
+
+export const yellowFlagCNs = [...appointmentCNs, ...regularCNs].filter(
+  (item) => item.yellowFlagReason
+);
 export const labourResources = [];
 export const docks = [];
 export const smartTripDrivers = [
@@ -574,6 +964,62 @@ export const smartTripVehicles = [
   { id: 'VH-303', label: '17 ft Truck', number: 'UP-16-GH-4431', type: 'Closed Body', totalCapacity: '1.8 T', utilizedCapacity: '1.28 T', remainingCapacity: '0.52 T' },
   { id: 'VH-304', label: '40 ft Trailer', number: 'DL-1L-JK-9020', type: 'High Deck', totalCapacity: '5.0 T', utilizedCapacity: '4.15 T', remainingCapacity: '0.85 T' },
 ];
+
+export const nearbyBranchVehicles = [
+  { id: 'NBV-401', branch: 'Gurugram Hub', label: '20 ft Truck', number: 'HR-38-AT-4412', eta: '22 min', capacity: '2.0 T', status: 'Empty' },
+  { id: 'NBV-402', branch: 'Noida Hub', label: '17 ft Truck', number: 'UP-16-BX-2204', eta: '31 min', capacity: '1.7 T', status: 'Empty' },
+  { id: 'NBV-403', branch: 'West Delhi Hub', label: '32 ft Container', number: 'DL-1M-CQ-1008', eta: '39 min', capacity: '3.0 T', status: 'Empty' },
+];
+
+const parseDurationToMinutes = (duration) => {
+  const hours = Number(duration.match(/(\d+)h/i)?.[1] || 0);
+  const minutes = Number(duration.match(/(\d+)m/i)?.[1] || 0);
+  return hours * 60 + minutes;
+};
+
+const formatDurationMinutes = (totalMinutes) => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+};
+
+const getVehicleSizeRank = (label = '') => {
+  if (label.includes('17 ft')) return 1;
+  if (label.includes('20 ft')) return 2;
+  if (label.includes('32 ft')) return 3;
+  if (label.includes('40 ft')) return 4;
+  return 0;
+};
+
+const tripConstraintRules = {
+  'route-a-south-delhi': {
+    zoneName: 'South Delhi mixed-access zone',
+    maxVehicleSize: '20 ft Truck',
+    requiredVehicleCount: 2,
+    impactedAreas: ['Lajpat Nagar', 'Nehru Place', 'Saket'],
+    reason: 'Dense market lanes and timed entry restrictions require splitting the route into smaller vehicles.',
+    additionalVehicleIds: [],
+  },
+  'route-d-west-delhi': {
+    zoneName: 'West Delhi lane-restriction cluster',
+    maxVehicleSize: '20 ft Truck',
+    requiredVehicleCount: 2,
+    impactedAreas: ['Punjabi Bagh', 'Paschim Vihar', 'Nangloi'],
+    reason: 'Trailer turning radius is restricted in the interior delivery lanes for these touchpoints.',
+    additionalVehicleIds: ['VH-302'],
+  },
+  'route-o-aerocity-corridor': {
+    zoneName: 'Aerocity controlled-access corridor',
+    maxVehicleSize: '17 ft Truck',
+    requiredVehicleCount: 3,
+    impactedAreas: ['Aerocity', 'Vasant Kunj', 'Safdarjung Enclave'],
+    reason: 'Airport corridor dwell-time rules and enclave access limits require additional smaller vehicles.',
+    additionalVehicleIds: ['VH-303'],
+  },
+};
+
+const reconciliationStatuses = ['Pending Reconciliation', 'Closure Review', 'Payment Pending', 'Ready to Close'];
+const reconciliationPaymentActions = ['Collect COD', 'Release vendor payment', 'Reconcile freight bill', 'Hold for claim review'];
 
 export const sampleTrips = [
   {
@@ -982,7 +1428,77 @@ export const sampleTrips = [
       { id: 'PRQ-5810', type: 'Pickup', label: 'Safdarjung Enclave', client: 'Sky Retail', address: 'Safdarjung Enclave, Delhi', cns: 5, boxes: 48, weight: '479 kg', timeWindow: '12:25 - 13:15', lat: 28.5605, lng: 77.1960 },
     ],
   },
-];
+].map((trip, index) => ({
+  ...trip,
+  travelTime: formatDurationMinutes(Math.max(60, Math.round(parseDurationToMinutes(trip.estimatedTime) * 0.64 / 5) * 5)),
+  serviceTime: formatDurationMinutes(
+    Math.max(
+      35,
+      parseDurationToMinutes(trip.estimatedTime) -
+        Math.max(60, Math.round(parseDurationToMinutes(trip.estimatedTime) * 0.64 / 5) * 5)
+    )
+  ),
+  runningHoursLimit: trip.vehicle.label.includes('40 ft') ? 9 : trip.vehicle.label.includes('17 ft') ? 7 : 8,
+  runningHoursUsed: Number(
+    (
+      parseDurationToMinutes(trip.estimatedTime) / 60 +
+      2.35 +
+      (index % 4) * 0.45
+    ).toFixed(1)
+  ),
+  vehicleConstraint: tripConstraintRules[trip.id]
+    ? {
+        ...tripConstraintRules[trip.id],
+        currentVehicleSize: trip.vehicle.label,
+      }
+    : null,
+  additionalVehicles: (tripConstraintRules[trip.id]?.additionalVehicleIds || [])
+    .map((vehicleId) => smartTripVehicles.find((vehicle) => vehicle.id === vehicleId))
+    .filter(Boolean),
+  runningHoursApprovalRequired:
+    Number(
+      (
+        parseDurationToMinutes(trip.estimatedTime) / 60 +
+        2.35 +
+        (index % 4) * 0.45
+      ).toFixed(1)
+    ) > (trip.vehicle.label.includes('40 ft') ? 9 : trip.vehicle.label.includes('17 ft') ? 7 : 8),
+  runningHoursApprovalReason: '',
+  reconciliation: {
+    drsNumber: `DRS-${2401 + index}`,
+    cnPlanned: trip.cnsCount,
+    cnDelivered: Math.max(trip.cnsCount - (index % 3), 0),
+    prqPlanned: trip.prqsCount,
+    prqPicked: Math.max(trip.prqsCount - (index % 2), 0),
+    nrdCount: index % 4 === 0 ? 1 : 0,
+    partialDeliveryCount: index % 5 === 0 ? 1 : 0,
+    status: reconciliationStatuses[index % reconciliationStatuses.length],
+    paymentAction: reconciliationPaymentActions[index % reconciliationPaymentActions.length],
+    closureStatus: index % 3 === 0 ? 'Open' : 'Pending',
+  },
+  operatorContact: operatorContacts[index % operatorContacts.length],
+  autoAssignedVehicle:
+    index % 3 === 0
+      ? {
+          source: 'Auto picked by system',
+          vehicle: smartTripVehicles[index % smartTripVehicles.length],
+          confidence: `${92 - (index % 4) * 3}%`,
+          available: true,
+        }
+      : {
+          source: 'Auto picked by system',
+          vehicle: null,
+          confidence: `${84 - (index % 4) * 2}%`,
+          available: false,
+        },
+  nearbyBranchVehicleOptions:
+    index % 3 === 0
+      ? []
+      : nearbyBranchVehicles.slice(0, (index % nearbyBranchVehicles.length) + 1),
+  branchVehicleRequestStatus: 'Not Sent',
+  marketVehicleRequestStatus: 'Not Raised',
+  status: index % 3 === 0 ? 'Planned' : 'Routing Pending',
+}));
 
 export const getPotentialPickups = () => potentialPickups;
 export const getRequestedPickups = () => requestedPickups;

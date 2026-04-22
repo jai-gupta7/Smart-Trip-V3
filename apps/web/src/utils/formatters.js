@@ -54,15 +54,35 @@ export const getStatusVariant = (status) => {
   if (!status) return 'default';
   const statusLower = status.toLowerCase();
   
-  if (statusLower.includes('confirmed') || statusLower.includes('completed') || statusLower.includes('delivered') || statusLower.includes('resolved')) {
+  if (
+    statusLower.includes('confirmed') ||
+    statusLower.includes('completed') ||
+    statusLower.includes('delivered') ||
+    statusLower.includes('resolved') ||
+    statusLower.includes('allocated') ||
+    statusLower.includes('planned')
+  ) {
     return 'success';
   }
   
-  if (statusLower.includes('pending') || statusLower.includes('scheduled') || statusLower.includes('in-progress') || statusLower.includes('under review')) {
+  if (
+    statusLower.includes('pending') ||
+    statusLower.includes('scheduled') ||
+    statusLower.includes('in-progress') ||
+    statusLower.includes('under review') ||
+    statusLower.includes('awaiting') ||
+    statusLower.includes('market request')
+  ) {
     return 'warning';
   }
   
-  if (statusLower.includes('failed') || statusLower.includes('issue') || statusLower.includes('flagged') || statusLower.includes('cancelled')) {
+  if (
+    statusLower.includes('failed') ||
+    statusLower.includes('issue') ||
+    statusLower.includes('flagged') ||
+    statusLower.includes('cancelled') ||
+    statusLower.includes('canceled')
+  ) {
     return 'destructive';
   }
   

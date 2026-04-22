@@ -21,17 +21,23 @@ const getMarkerIcon = (maps, location) => {
   };
 };
 
-const MapView = ({ locations = [], height = '400px', interactive = true }) => {
+const MapView = ({ locations = [], routes = [], height = '400px', interactive = true }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
-  const polylineRef = useRef(null);
+  const polylinesRef = useRef([]);
   const [error, setError] = useState('');
 
-  const normalizedLocations = useMemo(
-    () => locations.map((location, index) => normalizeMapLocation(location, index)),
-    [locations]
-  );
+  const activeRoutes = useMemo(() => {
+    return routes && routes.length > 0 ? routes : (locations && locations.length > 0 ? [{ locations }] : []);
+  }, [routes, locations]);
+
+  const allNormalizedLocations = useMemo(() => {
+    return activeRoutes.flatMap(route => {
+      const allLocs = [...(route.locations || []), ...(route.plannedLocations || []), ...(route.takenLocations || [])];
+      return Array.from(new Set(allLocs.map(l => l.id || l.name))).map(id => allLocs.find(l => (l.id || l.name) === id));
+    }).map((loc, index) => normalizeMapLocation(loc, index));
+  }, [activeRoutes]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -68,12 +74,10 @@ const MapView = ({ locations = [], height = '400px', interactive = true }) => {
         });
         markersRef.current = [];
 
-        if (polylineRef.current) {
-          polylineRef.current.setMap(null);
-          polylineRef.current = null;
-        }
+        polylinesRef.current.forEach(p => p.setMap(null));
+        polylinesRef.current = [];
 
-        if (normalizedLocations.length === 0) {
+        if (allNormalizedLocations.length === 0) {
           mapInstanceRef.current.setCenter(DEFAULT_MAP_CENTER);
           mapInstanceRef.current.setZoom(5);
           return;
@@ -81,7 +85,7 @@ const MapView = ({ locations = [], height = '400px', interactive = true }) => {
 
         const bounds = new maps.LatLngBounds();
 
-        normalizedLocations.forEach((location) => {
+        allNormalizedLocations.forEach((location) => {
           const marker = new maps.Marker({
             map: mapInstanceRef.current,
             position: location.position,
@@ -104,19 +108,74 @@ const MapView = ({ locations = [], height = '400px', interactive = true }) => {
           bounds.extend(location.position);
         });
 
-        if (normalizedLocations.length > 1) {
-          polylineRef.current = new maps.Polyline({
-            path: normalizedLocations.map((location) => location.position),
-            geodesic: true,
-            strokeColor: '#2563eb',
-            strokeOpacity: 0.9,
-            strokeWeight: 4,
-            map: mapInstanceRef.current,
-          });
-        }
+        activeRoutes.forEach((route, index) => {
+          const color = route.color || ['#2563eb', '#eab308', '#22c55e', '#ef4444'][index % 4];
 
-        if (normalizedLocations.length === 1) {
-          mapInstanceRef.current.setCenter(normalizedLocations[0].position);
+          if (route.plannedLocations && route.plannedLocations.length > 1) {
+            const normPlanned = route.plannedLocations.map((loc, i) => normalizeMapLocation(loc, i));
+            const polyline = new maps.Polyline({
+              path: normPlanned.map((loc) => loc.position),
+              geodesic: true,
+              strokeColor: color,
+              strokeOpacity: 0.5,
+              strokeWeight: 4,
+              map: mapInstanceRef.current,
+            });
+            polylinesRef.current.push(polyline);
+          }
+
+          if (route.takenLocations && route.takenLocations.length > 1) {
+            const normTaken = route.takenLocations.map((loc, i) => normalizeMapLocation(loc, i));
+            const polyline = new maps.Polyline({
+              path: normTaken.map((loc) => loc.position),
+              geodesic: true,
+              strokeColor: color,
+              strokeOpacity: 1,
+              strokeWeight: 4,
+              map: mapInstanceRef.current,
+            });
+            polylinesRef.current.push(polyline);
+            
+            const lastLoc = normTaken[normTaken.length - 1];
+            const prevLoc = normTaken[Math.max(0, normTaken.length - 2)];
+
+            let isMovingRight = true;
+            if (lastLoc && prevLoc && lastLoc !== prevLoc) {
+              const getLng = (pos) => typeof pos.lng === 'function' ? pos.lng() : pos.lng;
+              const dx = getLng(lastLoc.position) - getLng(prevLoc.position);
+              isMovingRight = dx >= 0;
+            }
+
+            const truckMarker = new maps.Marker({
+              map: mapInstanceRef.current,
+              position: lastLoc.position,
+              title: "Current Location",
+              icon: {
+                url: isMovingRight ? '/truck_right.png' : '/truck_left.png',
+                scaledSize: new maps.Size(40, 40),
+                anchor: new maps.Point(20, 20)
+              },
+              zIndex: 999
+            });
+            markersRef.current.push(truckMarker);
+          }
+
+          if (route.locations && route.locations.length > 1) {
+            const normLocs = route.locations.map((loc, i) => normalizeMapLocation(loc, i));
+            const polyline = new maps.Polyline({
+              path: normLocs.map((loc) => loc.position),
+              geodesic: true,
+              strokeColor: color,
+              strokeOpacity: 0.9,
+              strokeWeight: 4,
+              map: mapInstanceRef.current,
+            });
+            polylinesRef.current.push(polyline);
+          }
+        });
+
+        if (allNormalizedLocations.length === 1) {
+          mapInstanceRef.current.setCenter(allNormalizedLocations[0].position);
           mapInstanceRef.current.setZoom(12);
         } else {
           mapInstanceRef.current.fitBounds(bounds, 48);
@@ -133,7 +192,7 @@ const MapView = ({ locations = [], height = '400px', interactive = true }) => {
     return () => {
       isCancelled = true;
     };
-  }, [normalizedLocations]);
+  }, [allNormalizedLocations, activeRoutes]);
 
   return (
     <div
@@ -155,7 +214,7 @@ const MapView = ({ locations = [], height = '400px', interactive = true }) => {
         </div>
       ) : null}
 
-      {!error && normalizedLocations.length === 0 ? (
+      {!error && allNormalizedLocations.length === 0 ? (
         <div className="absolute left-4 top-4 rounded-md bg-background/90 px-3 py-2 text-sm text-muted-foreground shadow">
           No locations available for this view.
         </div>
