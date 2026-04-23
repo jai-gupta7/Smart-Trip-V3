@@ -23,7 +23,9 @@ const getDefaultValues = (pickup) => ({
     pickup?.selectedVehicleId ||
     scheduledPickupVehicleOptions.find((vehicle) => vehicle.label === pickup?.vehicle)?.id ||
     '',
-  additionalVehicleId: pickup?.additionalVehicleId || '',
+  additionalVehicleSize: pickup?.additionalVehicleRequirement?.vehicleSize || '',
+  additionalVehicleCapacity: pickup?.additionalVehicleRequirement?.capacity || '',
+  additionalVehicleRequiredAt: pickup?.additionalVehicleRequirement?.requiredAt || '',
   pocName: pickup?.poc?.name || '',
   pocPhone: pickup?.poc?.phone || '',
   marketReason: pickup?.marketVehicleRequest?.reason || '',
@@ -90,13 +92,15 @@ const SchedulePickupsEditModal = ({ isOpen, onClose, pickup, onSave }) => {
   const [showAdditionalVehicle, setShowAdditionalVehicle] = useState(false);
   const [showMarketSourcing, setShowMarketSourcing] = useState(false);
   const vehicleId = watch('vehicleId');
-  const additionalVehicleId = watch('additionalVehicleId');
+  const additionalVehicleSize = watch('additionalVehicleSize');
+  const additionalVehicleCapacity = watch('additionalVehicleCapacity');
+  const additionalVehicleRequiredAt = watch('additionalVehicleRequiredAt');
   const isSubPrq = pickup?.prqMode === 'Sub-Scheduled' || Boolean(pickup?.parentPickupId || pickup?.subPrqSequence);
 
   useEffect(() => {
     reset(getDefaultValues(pickup));
     setShowAdditionalVehicle(
-      !isSubPrq && Boolean(pickup?.additionalVehicleId || pickup?.subPrqId)
+      !isSubPrq && Boolean(pickup?.additionalVehicleRequirement || pickup?.additionalVehicleDetails || pickup?.subPrqId)
     );
     setShowMarketSourcing(Boolean(pickup?.marketVehicleRequest));
   }, [isSubPrq, pickup, reset]);
@@ -104,10 +108,6 @@ const SchedulePickupsEditModal = ({ isOpen, onClose, pickup, onSave }) => {
   const selectedVehicle = useMemo(
     () => scheduledPickupVehicleOptions.find((vehicle) => vehicle.id === vehicleId),
     [vehicleId]
-  );
-  const additionalVehicle = useMemo(
-    () => scheduledPickupVehicleOptions.find((vehicle) => vehicle.id === additionalVehicleId),
-    [additionalVehicleId]
   );
   const activeVehicle = showMarketSourcing ? null : selectedVehicle;
   const routePreview = activeVehicle?.routeToBranch
@@ -155,9 +155,36 @@ const SchedulePickupsEditModal = ({ isOpen, onClose, pickup, onSave }) => {
         ? 'Awaiting market vehicle confirmation'
         : primaryVehicle.etaToBranch,
       branchLocation: showMarketSourcing ? pickup.branchLocation || null : primaryVehicle.branch,
-      additionalVehicleId: !isSubPrq && showAdditionalVehicle ? data.additionalVehicleId : '',
-      additionalVehicleDetails: !isSubPrq && showAdditionalVehicle ? additionalVehicle || null : null,
-      subPrqId: !isSubPrq && showAdditionalVehicle && additionalVehicle ? `${pickup.pickupId}S1` : '',
+      additionalVehicleId: '',
+      additionalVehicleRequirement:
+        !isSubPrq && showAdditionalVehicle
+          ? {
+              vehicleSize: data.additionalVehicleSize,
+              capacity: data.additionalVehicleCapacity,
+              requiredAt: data.additionalVehicleRequiredAt,
+            }
+          : null,
+      additionalVehicleDetails:
+        !isSubPrq && showAdditionalVehicle
+          ? {
+              id: `${pickup.pickupId}-requirement`,
+              label: `${data.additionalVehicleSize || 'Vehicle'} | ${data.additionalVehicleCapacity || 'Capacity pending'}`,
+              driver: { name: 'Awaiting allocation', phone: 'To be assigned' },
+              transporter: null,
+              routeToBranch: null,
+              etaToBranch: data.additionalVehicleRequiredAt || 'Requirement time pending',
+              branch: pickup.branchLocation || null,
+              requirement: {
+                vehicleSize: data.additionalVehicleSize,
+                capacity: data.additionalVehicleCapacity,
+                requiredAt: data.additionalVehicleRequiredAt,
+              },
+            }
+          : null,
+      subPrqId:
+        !isSubPrq && showAdditionalVehicle && data.additionalVehicleSize
+          ? `${pickup.pickupId}S1`
+          : '',
       marketVehicleRequest: showMarketSourcing
         ? { reason: data.marketReason.trim(), status: 'Requested' }
         : null,
@@ -289,36 +316,48 @@ const SchedulePickupsEditModal = ({ isOpen, onClose, pickup, onSave }) => {
                         {showAdditionalVehicle ? (
                           <div className="mt-4 grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                              <Label>Additional Vehicle</Label>
+                              <Label>Vehicle Size</Label>
                               <Controller
-                                name="additionalVehicleId"
+                                name="additionalVehicleSize"
                                 control={control}
                                 render={({ field }) => (
                                   <Select onValueChange={field.onChange} value={field.value || undefined}>
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Select overflow vehicle" />
+                                      <SelectValue placeholder="Select vehicle size" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {scheduledPickupVehicleOptions
-                                        .filter((vehicle) => vehicle.id !== vehicleId)
-                                        .map((vehicle) => (
-                                          <SelectItem key={vehicle.id} value={vehicle.id}>
-                                            {vehicle.label}
-                                          </SelectItem>
-                                        ))}
+                                      {['10 ft', '14 ft', '17 ft', '20 ft', '24 ft', '32 ft'].map((size) => (
+                                        <SelectItem key={size} value={size}>
+                                          {size}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 )}
                               />
                             </div>
                             <div className="space-y-2">
+                              <Label>Capacity Required</Label>
+                              <Input
+                                {...register('additionalVehicleCapacity')}
+                                placeholder="e.g. 2.5 T / 180 boxes"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Time Of Requirement</Label>
+                              <Input type="datetime-local" {...register('additionalVehicleRequiredAt')} />
+                            </div>
+                            <div className="space-y-2">
                               <Label>Generated Sub PRQ</Label>
                               <Input
-                                value={additionalVehicle ? `${pickup?.pickupId}S1` : ''}
+                                value={additionalVehicleSize ? `${pickup?.pickupId}S1` : ''}
                                 readOnly
                                 placeholder={`Will be created as ${pickup?.pickupId}S1`}
                               />
                             </div>
+                            <p className="md:col-span-2 text-xs text-muted-foreground">
+                              Sub-PRQ will be generated from this requirement. Vehicle allocation can happen separately.
+                            </p>
                           </div>
                         ) : null}
                       </div>

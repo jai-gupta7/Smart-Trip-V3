@@ -65,7 +65,7 @@ const getNextSubPrqSequence = (rows, mainPickupId) =>
     .filter((row) => row.parentPickupId === mainPickupId && row.prqMode === 'Sub-Scheduled')
     .reduce((maxValue, row) => Math.max(maxValue, Number(row.subPrqSequence || 0)), 0) + 1;
 
-const buildSubPrqRow = (mainPickup, additionalVehicle, sequence, existingSubRow) => ({
+const buildSubPrqRow = (mainPickup, additionalRequirement, sequence, existingSubRow) => ({
   ...(existingSubRow || {}),
   ...mainPickup,
   id: existingSubRow?.id || `${mainPickup.id}-sub-${sequence}`,
@@ -73,16 +73,17 @@ const buildSubPrqRow = (mainPickup, additionalVehicle, sequence, existingSubRow)
   parentPickupId: mainPickup.parentPickupId || mainPickup.pickupId,
   subPrqSequence: sequence,
   prqMode: 'Sub-Scheduled',
-  selectedVehicleId: additionalVehicle.id,
-  vehicle: additionalVehicle.label,
-  driver: additionalVehicle.driver.name,
-  driverContact: additionalVehicle.driver,
-  transporterDetails: additionalVehicle.transporter,
-  liveVehicleRoute: additionalVehicle.routeToBranch,
-  etaToBranch: additionalVehicle.etaToBranch,
-  branchLocation: additionalVehicle.branch,
+  selectedVehicleId: '',
+  vehicle: additionalRequirement.label,
+  driver: 'Awaiting allocation',
+  driverContact: { name: 'Awaiting allocation', phone: 'To be assigned' },
+  transporterDetails: null,
+  liveVehicleRoute: null,
+  etaToBranch: additionalRequirement.etaToBranch,
+  branchLocation: mainPickup.branchLocation || null,
   additionalVehicleId: '',
   additionalVehicleDetails: null,
+  additionalVehicleRequirement: additionalRequirement.requirement,
   subPrqId: '',
   generatedSubPrqId: '',
   marketVehicleRequest: null,

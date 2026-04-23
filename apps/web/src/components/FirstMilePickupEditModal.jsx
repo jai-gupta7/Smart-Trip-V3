@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -20,6 +20,13 @@ import {
 } from '@/lib/dummyData';
 
 const CREATE_NEW_TRIP_VALUE = '__create_new__';
+const ASSIGNMENT_MODES = {
+  NONE: 'none',
+  EXISTING: 'existing',
+  NEW: 'new',
+};
+
+const getAssignmentMode = () => ASSIGNMENT_MODES.NONE;
 
 const getDefaultValues = (pickup, type) => {
   if (!pickup) {
@@ -101,20 +108,44 @@ const Info = ({ label, value }) => (
   </div>
 );
 
+const AssignmentModeButton = ({ active, title, description, onClick }) => (
+  <button
+    type="button"
+    aria-pressed={active}
+    onClick={onClick}
+    className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+      active
+        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+        : 'border-border bg-background hover:border-primary/50 hover:bg-muted/30'
+    }`}
+  >
+    <span className="block font-medium">{title}</span>
+    <span className={`mt-1 block text-xs ${active ? 'text-primary-foreground/85' : 'text-muted-foreground'}`}>
+      {description}
+    </span>
+  </button>
+);
+
 const FirstMilePickupEditModal = ({ isOpen, onClose, pickup, type, onSave }) => {
   const { control, handleSubmit, register, reset, watch, setValue } = useForm({
     defaultValues: getDefaultValues(null, type),
   });
+  const [assignmentMode, setAssignmentMode] = useState(ASSIGNMENT_MODES.NEW);
 
   useEffect(() => {
     reset(getDefaultValues(pickup, type));
+    setAssignmentMode(getAssignmentMode(pickup));
   }, [pickup, reset, type]);
 
   const isPotential = type === 'potential';
+  const canAssignTrip = !isPotential && pickup?.prqMode === 'Potential';
   const tripAssignment = watch('tripAssignment');
   const selectedTrip = useMemo(
-    () => scheduledPickupTripsInProgress.find((trip) => trip.id === tripAssignment),
-    [tripAssignment]
+    () =>
+      assignmentMode === ASSIGNMENT_MODES.EXISTING
+        ? scheduledPickupTripsInProgress.find((trip) => trip.id === tripAssignment)
+        : null,
+    [assignmentMode, tripAssignment]
   );
 
   const onSubmit = (data) => {
@@ -140,7 +171,12 @@ const FirstMilePickupEditModal = ({ isOpen, onClose, pickup, type, onSave }) => 
       status: data.status,
       operatorName: pickup.operatorName,
       operatorContact: pickup.operatorContact || operatorContactDirectory[pickup.operatorName],
-      assignedTripId: data.tripAssignment,
+      assignedTripId:
+        !canAssignTrip || assignmentMode === ASSIGNMENT_MODES.NONE
+          ? pickup.assignedTripId
+          : assignmentMode === ASSIGNMENT_MODES.NEW
+          ? CREATE_NEW_TRIP_VALUE
+          : data.tripAssignment,
     });
     onClose();
   };
@@ -215,83 +251,90 @@ const FirstMilePickupEditModal = ({ isOpen, onClose, pickup, type, onSave }) => 
                   </CardContent>
                 </Card>
 
-                  <Card className="shadow-sm">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Trip Assignment</CardTitle>
-                    </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Assignment Mode</Label>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <Button
-                              type="button"
-                              variant={tripAssignment !== CREATE_NEW_TRIP_VALUE ? 'secondary' : 'outline'}
-                              className="justify-start"
-                              onClick={() => {
-                                if (selectedTrip) {
-                                  setValue('tripAssignment', selectedTrip.id, { shouldDirty: true });
-                                  return;
-                                }
+                  {canAssignTrip ? (
+                    <Card className="shadow-sm">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Trip Assignment</CardTitle>
+                        </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>Assignment Mode</Label>
+                              <div className="grid gap-3 md:grid-cols-3">
+                                <AssignmentModeButton
+                                  active={assignmentMode === ASSIGNMENT_MODES.NONE}
+                                  title="No Assignment Change"
+                                  description="Keep this PRQ as-is."
+                                  onClick={() => setAssignmentMode(ASSIGNMENT_MODES.NONE)}
+                                />
+                                <AssignmentModeButton
+                                  active={assignmentMode === ASSIGNMENT_MODES.EXISTING}
+                                  title="Assign To Existing Trip"
+                                  description="Add this PRQ to an active route."
+                                  onClick={() => {
+                                    setAssignmentMode(ASSIGNMENT_MODES.EXISTING);
+                                    const fallbackTripId = scheduledPickupTripsInProgress[0]?.id;
+                                    if (tripAssignment === CREATE_NEW_TRIP_VALUE && fallbackTripId) {
+                                      setValue('tripAssignment', fallbackTripId, { shouldDirty: true });
+                                    }
+                                  }}
+                                />
+                                <AssignmentModeButton
+                                  active={assignmentMode === ASSIGNMENT_MODES.NEW}
+                                  title="Create New Trip"
+                                  description="Start a fresh trip for this PRQ."
+                                  onClick={() => {
+                                    setAssignmentMode(ASSIGNMENT_MODES.NEW);
+                                    setValue('tripAssignment', CREATE_NEW_TRIP_VALUE, { shouldDirty: true });
+                                  }}
+                                />
+                              </div>
+                            </div>
 
-                                const fallbackTripId = scheduledPickupTripsInProgress[0]?.id;
-                                if (fallbackTripId) {
-                                  setValue('tripAssignment', fallbackTripId, { shouldDirty: true });
-                                }
-                              }}
-                            >
-                              Assign To Existing Trip
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={tripAssignment === CREATE_NEW_TRIP_VALUE ? 'secondary' : 'outline'}
-                              className="justify-start"
-                              onClick={() => setValue('tripAssignment', CREATE_NEW_TRIP_VALUE, { shouldDirty: true })}
-                            >
-                              Create New Trip
-                            </Button>
-                          </div>
-                        </div>
+                            {assignmentMode === ASSIGNMENT_MODES.EXISTING ? (
+                              <div className="space-y-2">
+                                <Label>Existing Trip</Label>
+                                <Controller
+                                  name="tripAssignment"
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select existing trip" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {scheduledPickupTripsInProgress.map((trip) => (
+                                          <SelectItem key={trip.id} value={trip.id}>
+                                            {trip.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </div>
+                            ) : null}
 
-                        {tripAssignment !== CREATE_NEW_TRIP_VALUE ? (
-                          <div className="space-y-2">
-                            <Label>Existing Trip</Label>
-                            <Controller
-                              name="tripAssignment"
-                              control={control}
-                              render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select existing trip" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {scheduledPickupTripsInProgress.map((trip) => (
-                                      <SelectItem key={trip.id} value={trip.id}>
-                                        {trip.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                            <div className="space-y-2">
+                              {assignmentMode === ASSIGNMENT_MODES.NONE ? (
+                                <div className="rounded-xl border border-dashed bg-muted/15 p-4 text-sm text-muted-foreground">
+                                  No assignment change selected. Save will only update the edited pickup details.
+                                </div>
+                              ) : selectedTrip ? (
+                                <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-4">
+                                  <Info label="Trip" value={selectedTrip.name} />
+                                  <Info label="Branch" value={selectedTrip.branchName} />
+                                  <Info label="PRQs" value={selectedTrip.prqCount} />
+                                  <Info label="Utilization" value={selectedTrip.utilization} />
+                                </div>
+                              ) : (
+                                <div className="rounded-xl border border-dashed bg-muted/15 p-4 text-sm text-muted-foreground">
+                                  New trip creation selected. The system will create a fresh trip when this edit is saved.
+                                </div>
                               )}
-                            />
-                          </div>
-                        ) : null}
-
-                        <div className="space-y-2">
-                          {selectedTrip && tripAssignment !== CREATE_NEW_TRIP_VALUE ? (
-                            <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-4">
-                              <Info label="Trip" value={selectedTrip.name} />
-                              <Info label="Branch" value={selectedTrip.branchName} />
-                              <Info label="PRQs" value={selectedTrip.prqCount} />
-                              <Info label="Utilization" value={selectedTrip.utilization} />
                             </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed bg-muted/15 p-4 text-sm text-muted-foreground">
-                              A fresh trip will be created for this pickup once the edit is confirmed.
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                  </Card>
+                          </CardContent>
+                    </Card>
+                  ) : null}
 
                 <Card className="shadow-sm">
                   <CardHeader className="pb-3">
