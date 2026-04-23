@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BreadcrumbNav from '@/components/BreadcrumbNav';
-import FilterBar from '@/components/FilterBar';
+import SchedulePickupsFilters from '@/components/SchedulePickupsFilters';
 import StatusBadge from '@/components/StatusBadge';
 import ActionButton from '@/components/ActionButton';
 import LocationMapModal from '@/components/LocationMapModal';
@@ -26,14 +26,68 @@ import { Calendar, AlertTriangle, Map } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const LastMilePage = () => {
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({
+    status: 'All',
+    timeRange: 'All Time',
+    search: '',
+    startTime: '',
+    endTime: '',
+  });
+
   const [activeTab, setActiveTab] = useState('appointments');
   const [mapLocation, setMapLocation] = useState(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const navigate = useNavigate();
   
-  const appointmentCNs = getAppointmentCNs();
-  const regularCNs = getRegularCNs();
+  const appointmentCNsData = getAppointmentCNs();
+  const regularCNsData = getRegularCNs();
+
+  React.useEffect(() => {
+    setFilters((prev) => ({ ...prev, status: 'All' }));
+  }, [activeTab]);
+
+  const applyFilters = (data, currentFilters) => {
+    let filtered = [...data];
+
+    if (currentFilters.status && currentFilters.status !== 'All') {
+      filtered = filtered.filter((item) => item.status === currentFilters.status);
+    }
+
+    if (currentFilters.startTime) {
+      const start = new Date(currentFilters.startTime).getTime();
+      filtered = filtered.filter((item) => {
+        const itemDate = item.appointmentDate;
+        return itemDate ? new Date(itemDate).getTime() >= start : true;
+      });
+    }
+
+    if (currentFilters.endTime) {
+      const end = new Date(currentFilters.endTime).getTime();
+      filtered = filtered.filter((item) => {
+        const itemDate = item.appointmentDate;
+        return itemDate ? new Date(itemDate).getTime() <= end : true;
+      });
+    }
+
+    if (currentFilters.search) {
+      const q = currentFilters.search.toLowerCase();
+      filtered = filtered.filter((item) => {
+        const cn = item.cn || '';
+        const cust = item.customer || '';
+        const ref = item.referenceNo || '';
+        const inv = item.invoices ? item.invoices.join(' ') : '';
+        return cn.toLowerCase().includes(q) || 
+               cust.toLowerCase().includes(q) ||
+               ref.toLowerCase().includes(q) ||
+               inv.toLowerCase().includes(q);
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredAppointmentCNs = React.useMemo(() => applyFilters(appointmentCNsData, filters), [appointmentCNsData, filters]);
+  const filteredRegularCNs = React.useMemo(() => applyFilters(regularCNsData, filters), [regularCNsData, filters]);
 
   const FlagCell = ({ reason }) => (
     reason ? (
@@ -116,7 +170,11 @@ const LastMilePage = () => {
         <TabsContent value="appointments">
           <div className="space-y-4">
             <h3 className="text-xl font-semibold tracking-tight">Appointment CNs</h3>
-              <FilterBar onSearch={setSearch} />
+              <SchedulePickupsFilters 
+                filters={filters} 
+                onFilterChange={setFilters} 
+                statusOptions={['Confirmed', 'Pending Confirmation', 'Rescheduled', 'Cancelled']}
+              />
               <TableShell>
                 <Table>
                   <TableHeader>
@@ -134,7 +192,7 @@ const LastMilePage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {appointmentCNs.slice(0, 10).map(item => (
+                    {filteredAppointmentCNs.slice(0, 10).map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium whitespace-nowrap">{item.cn}</TableCell>
                         <TableCell><StatusBadge status={item.status} /></TableCell>
@@ -165,7 +223,11 @@ const LastMilePage = () => {
         <TabsContent value="regular">
           <div className="space-y-4">
             <h3 className="text-xl font-semibold tracking-tight">Regular CN Only</h3>
-              <FilterBar onSearch={setSearch} />
+              <SchedulePickupsFilters 
+                filters={filters} 
+                onFilterChange={setFilters} 
+                statusOptions={['Confirmed', 'Pending Confirmation', 'Rescheduled', 'Cancelled']}
+              />
               <TableShell>
                 <Table>
                   <TableHeader>
@@ -182,7 +244,7 @@ const LastMilePage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {regularCNs.slice(0, 10).map(item => (
+                    {filteredRegularCNs.slice(0, 10).map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium whitespace-nowrap">{item.cn}</TableCell>
                         <TableCell><StatusBadge status={item.status} /></TableCell>

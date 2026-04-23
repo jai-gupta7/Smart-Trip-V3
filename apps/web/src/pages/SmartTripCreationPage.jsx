@@ -486,7 +486,62 @@ const RemoveCnDialog = ({ open, onOpenChange, stop, reason, onReasonChange, onSu
   </Dialog>
 );
 
-const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
+const getSuggestedRouteForAddress = (address, availableRoutes, currentRouteId) => {
+  const normalizedAddress = String(address || '').toLowerCase();
+  const candidateRoutes = availableRoutes.filter((route) => route.id !== currentRouteId);
+  const routeSignals = [
+    {
+      addressTerms: ['bandra', 'thane', 'sion', 'mankhurd', 'mulund'],
+      routeTerms: ['bandra', 'thane'],
+    },
+    {
+      addressTerms: ['turbhe', 'mahape', 'rabale', 'navi mumbai', 'kopar khairane'],
+      routeTerms: ['navi', 'industrial'],
+    },
+    {
+      addressTerms: ['andheri', 'vashi', 'kurla', 'midc'],
+      routeTerms: ['andheri', 'vashi'],
+    },
+  ];
+
+  const scoredRoutes = candidateRoutes.map((route) => {
+    const routeName = String(route.routeName || '').toLowerCase();
+    const score = routeSignals.reduce((total, signal) => {
+      const addressMatch = signal.addressTerms.some((term) => normalizedAddress.includes(term));
+      const routeMatch = signal.routeTerms.some((term) => routeName.includes(term));
+      return total + (addressMatch && routeMatch ? 2 : 0);
+    }, 0);
+
+    return { route, score };
+  });
+
+  return scoredRoutes.sort((first, second) => second.score - first.score)[0]?.route || candidateRoutes[0] || null;
+};
+
+const applyRouteManifestDelta = (vehicle, item, direction) => {
+  const delta = direction === 'add' ? 1 : -1;
+  const isCn = item?.type === 'CN';
+  const isPrq = item?.type === 'PRQ';
+  const isCompleted = String(item?.status || '').toLowerCase().includes(isCn ? 'delivered' : 'picked');
+
+  return {
+    ...vehicle,
+    noOfStops: Math.max(0, (vehicle.noOfStops || 0) + delta),
+    cnPlanned: Math.max(0, (vehicle.cnPlanned || 0) + (isCn ? delta : 0)),
+    cnDelivered: Math.max(0, (vehicle.cnDelivered || 0) + (isCn && isCompleted ? delta : 0)),
+    prqPlanned: Math.max(0, (vehicle.prqPlanned || 0) + (isPrq ? delta : 0)),
+    prqPicked: Math.max(0, (vehicle.prqPicked || 0) + (isPrq && isCompleted ? delta : 0)),
+  };
+};
+
+const EditOnRouteItemDialog = ({
+  open,
+  onOpenChange,
+  item,
+  onSave,
+  availableRoutes = [],
+  currentRouteId = '',
+}) => {
   const [formValues, setFormValues] = useState({
     pocName: '',
     pocPhone: '',
@@ -495,9 +550,25 @@ const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
     customerAddress: '',
     estimatedWeight: '',
     instructions: '',
+    routingAction: 'keep',
+    targetRouteId: '',
+    rescheduleSlot: '',
   });
 
+  const isPrq = item?.type === 'PRQ';
+  const currentRoute = availableRoutes.find((route) => route.id === currentRouteId) || null;
+  const suggestedRoute = getSuggestedRouteForAddress(
+    formValues.customerAddress,
+    availableRoutes,
+    currentRouteId
+  );
+  const addressChanged =
+    Boolean(item) &&
+    String(formValues.customerAddress || '').trim() !== String(item?.customerAddress || '').trim();
+  const movableRoutes = availableRoutes.filter((route) => route.id !== currentRouteId);
+
   useEffect(() => {
+    const nextSlot = item?.type === 'PRQ' ? item?.pickupSlot || '' : item?.appointmentSlot || '';
     setFormValues({
       pocName: item?.pocName || '',
       pocPhone: item?.pocPhone || '',
@@ -506,14 +577,21 @@ const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
       customerAddress: item?.customerAddress || '',
       estimatedWeight: item?.estimatedWeight || '',
       instructions: item?.instructions || '',
+      routingAction: 'keep',
+      targetRouteId: '',
+      rescheduleSlot: nextSlot,
     });
   }, [item]);
 
-  const isPrq = item?.type === 'PRQ';
+  useEffect(() => {
+    if (addressChanged && suggestedRoute && formValues.routingAction === 'transfer' && !formValues.targetRouteId) {
+      setFormValues((current) => ({ ...current, targetRouteId: suggestedRoute.id }));
+    }
+  }, [addressChanged, formValues.routingAction, formValues.targetRouteId, suggestedRoute]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[680px]">
         <DialogHeader>
           <DialogTitle>Edit {isPrq ? 'PRQ' : 'CN'} Details</DialogTitle>
           <DialogDescription>
@@ -601,6 +679,98 @@ const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
               className="min-h-[96px] resize-none"
             />
           </div>
+
+          <div className="rounded-2xl border bg-muted/10 p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Route Exception Action</p>
+                <p className="text-xs text-muted-foreground">
+                  Keep this item on {currentRoute?.routeName || 'current route'}, transfer it, or reschedule it back to regular buckets.
+                </p>
+              </div>
+              {addressChanged ? (
+                <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 sm:mt-0">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Misfit check
+                </span>
+              ) : null}
+            </div>
+
+            {addressChanged ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Address changed from route master data. Suggested route:{' '}
+                <span className="font-semibold">{suggestedRoute?.routeName || 'No alternate route found'}</span>.
+              </div>
+            ) : null}
+
+            <div className="mt-4 space-y-2">
+              <Label>Action</Label>
+              <Select
+                value={formValues.routingAction}
+                onValueChange={(routingAction) =>
+                  setFormValues((current) => ({
+                    ...current,
+                    routingAction,
+                    targetRouteId:
+                      routingAction === 'transfer'
+                        ? current.targetRouteId || suggestedRoute?.id || ''
+                        : '',
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose route action" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="keep">No route movement</SelectItem>
+                  <SelectItem value="transfer">Transfer to another route</SelectItem>
+                  <SelectItem value="reschedule">Reschedule and return to bucket</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formValues.routingAction === 'transfer' ? (
+              <div className="mt-4 space-y-2">
+                <Label>Transfer Route</Label>
+                <Select
+                  value={formValues.targetRouteId}
+                  onValueChange={(targetRouteId) =>
+                    setFormValues((current) => ({ ...current, targetRouteId }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select target route" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {movableRoutes.map((route) => (
+                      <SelectItem key={route.id} value={route.id}>
+                        {route.routeName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            {formValues.routingAction === 'reschedule' ? (
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="on-route-reschedule-slot">
+                  {isPrq ? 'Rescheduled Pickup Slot' : 'Rescheduled Appointment Slot'}
+                </Label>
+                <Input
+                  id="on-route-reschedule-slot"
+                  value={formValues.rescheduleSlot}
+                  onChange={(event) =>
+                    setFormValues((current) => ({ ...current, rescheduleSlot: event.target.value }))
+                  }
+                  placeholder={isPrq ? 'New pickup slot' : 'New appointment slot'}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Saving this will remove the {isPrq ? 'PRQ' : 'CN'} from the active route and return it to the regular bucket.
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <DialogFooter>
@@ -611,9 +781,20 @@ const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
             type="button"
             onClick={() => {
               if (!item) return;
+              if (formValues.routingAction === 'transfer' && !formValues.targetRouteId) {
+                toast.error('Select a target route before transferring.');
+                return;
+              }
+              if (formValues.routingAction === 'reschedule' && !formValues.rescheduleSlot.trim()) {
+                toast.error('Add a rescheduled slot before returning it to the bucket.');
+                return;
+              }
               onSave({
                 ...item,
                 ...formValues,
+                routeMisfit: addressChanged,
+                previousAddress: addressChanged ? item.customerAddress : item.previousAddress,
+                suggestedRouteId: addressChanged ? suggestedRoute?.id || '' : item.suggestedRouteId,
               });
             }}
           >
@@ -944,6 +1125,7 @@ const TripRouteDetail = ({
   onRaiseMarketVehicleRequest,
   onOpenAddVehicleDialog,
   addVehicleDisabled,
+  onRemoveUnpickedPrqs,
 }) => {
   const visibleStops = trip.cardStops || trip.stops;
   const stopsCount = visibleStops.length;
@@ -1222,9 +1404,16 @@ const TripRouteDetail = ({
                   <div className="rounded-2xl border bg-muted/20 p-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Vehicle Utilization</span>
-                      <span className="font-medium">{trip.vehicleUtilization}%</span>
+                      <div className="flex items-center gap-2">
+                        {trip.vehicleUtilization > 100 ? (
+                          <Badge variant="destructive" className="text-[10px] h-5 px-1.5">Over Utilized</Badge>
+                        ) : trip.vehicleUtilization === 100 ? (
+                          <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-green-600 hover:bg-green-700">Fully Utilized</Badge>
+                        ) : null}
+                        <span className="font-medium">{trip.vehicleUtilization}%</span>
+                      </div>
                     </div>
-                    <Progress value={trip.vehicleUtilization} className="mt-3 h-3" />
+                    <Progress value={trip.vehicleUtilization} className={cn("mt-3 h-3", trip.vehicleUtilization > 100 ? "[&>div]:bg-destructive" : "")} />
                     <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                       <div>
                         <p className="text-muted-foreground">Utilized</p>
@@ -1239,6 +1428,20 @@ const TripRouteDetail = ({
                         <p className="mt-1 font-semibold">{trip.distance}</p>
                       </div>
                     </div>
+                    
+                    {onRemoveUnpickedPrqs && (trip.stops || trip.routeItems || []).some(s => s.type === 'PRQ' && !String(s.status || '').toLowerCase().includes('picked')) && (
+                      <div className="mt-4 flex justify-end border-t pt-3 border-muted/50">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => onRemoveUnpickedPrqs(trip.id)}
+                        >
+                          Remove Unpicked PRQs
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {trip.vehicleChangeReason ? (
@@ -1429,6 +1632,10 @@ const SmartTripCreationPage = () => {
     open: false,
     routeId: '',
     item: null,
+  });
+  const [routeExceptionBuckets, setRouteExceptionBuckets] = useState({
+    PRQ: [],
+    CN: [],
   });
 
   const smartTripDrivers = useMemo(() => getSmartTripDrivers(), []);
@@ -1660,6 +1867,66 @@ const SmartTripCreationPage = () => {
     }));
   };
 
+  const removeUnpickedPrqsFromTrip = (tripId) => {
+    const tripToUpdate = trips.find(t => t.id === tripId) || onRouteVehicles.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const unpickedPrqs = (tripToUpdate.stops || tripToUpdate.routeItems || []).filter((stop) => {
+      const isPrq = stop.type === 'PRQ';
+      const isCompleted = String(stop.status || '').toLowerCase().includes('picked');
+      return isPrq && !isCompleted;
+    });
+
+    if (unpickedPrqs.length === 0) {
+      toast.info('No unpicked PRQs to remove.');
+      return;
+    }
+
+    const removedLogs = unpickedPrqs.map(up => ({
+      stopId: up.id,
+      reason: 'Unpicked PRQ removed due to capacity optimization',
+      removedAt: new Date().toISOString()
+    }));
+
+    setTrips(currentTrips => currentTrips.map(trip => {
+      if (trip.id !== tripId) return trip;
+      const remainingStops = (trip.stops || []).filter((stop) => !unpickedPrqs.some(up => up.id === stop.id));
+      return {
+        ...trip,
+        stops: remainingStops,
+        removedStopLogs: [...(trip.removedStopLogs || []), ...removedLogs]
+      };
+    }));
+
+    setOnRouteVehicles(currentVehicles => currentVehicles.map(trip => {
+      if (trip.id !== tripId) return trip;
+      const remainingRouteItems = (trip.routeItems || []).filter((stop) => !unpickedPrqs.some(up => up.id === stop.id));
+      const remainingTakenLocations = (trip.takenLocations || []).filter((stop) => !unpickedPrqs.some(up => up.id === stop.id));
+      return {
+        ...trip,
+        routeItems: remainingRouteItems,
+        takenLocations: remainingTakenLocations,
+        removedStopLogs: [...(trip.removedStopLogs || []), ...removedLogs]
+      };
+    }));
+
+    setRouteExceptionBuckets((prev) => ({
+      ...prev,
+      PRQ: [
+        ...unpickedPrqs.map(up => ({
+          ...up,
+          status: 'Rescheduled',
+          removedFromRouteId: tripToUpdate.id,
+          removedFromRouteName: tripToUpdate.routeName || tripToUpdate.id,
+          returnedToBucketAt: new Date().toISOString()
+        })),
+        ...prev.PRQ,
+      ]
+    }));
+
+    toast.success(`${unpickedPrqs.length} unpicked PRQ(s) removed and returned to the bucket.`);
+  };
+
   const handleDeleteStop = (stop) => {
     if (!stop) return;
 
@@ -1878,22 +2145,161 @@ const SmartTripCreationPage = () => {
   const handleSaveOnRouteItem = (updatedItem) => {
     if (!editOnRouteItemDialog.routeId || !updatedItem) return;
 
+    const {
+      routingAction = 'keep',
+      targetRouteId = '',
+      rescheduleSlot = '',
+      suggestedRouteId = '',
+      ...itemForRoute
+    } = updatedItem;
+    const sourceRouteId = editOnRouteItemDialog.routeId;
+    const sourceRoute = onRouteVehicles.find((vehicle) => vehicle.id === sourceRouteId);
+    const targetRoute = onRouteVehicles.find((vehicle) => vehicle.id === targetRouteId);
+    const sourceLocation =
+      sourceRoute?.plannedLocations?.find((location) => location.id === updatedItem.id) ||
+      sourceRoute?.takenLocations?.find((location) => location.id === updatedItem.id) ||
+      null;
+
+    if (routingAction === 'reschedule') {
+      const bucketItem = {
+        ...itemForRoute,
+        status: 'Rescheduled',
+        rescheduleSlot,
+        removedFromRouteId: sourceRouteId,
+        removedFromRouteName: sourceRoute?.routeName || '',
+        returnedToBucketAt: new Date().toISOString(),
+      };
+
+      setOnRouteVehicles((currentVehicles) =>
+        currentVehicles.map((vehicle) =>
+          vehicle.id === sourceRouteId
+            ? applyRouteManifestDelta(
+                {
+                  ...vehicle,
+                  routeItems: (vehicle.routeItems || []).filter((item) => item.id !== updatedItem.id),
+                  plannedLocations: (vehicle.plannedLocations || []).filter(
+                    (location) => location.id !== updatedItem.id
+                  ),
+                  takenLocations: (vehicle.takenLocations || []).filter(
+                    (location) => location.id !== updatedItem.id
+                  ),
+                },
+                updatedItem,
+                'remove'
+              )
+            : vehicle
+        )
+      );
+
+      setRouteExceptionBuckets((currentBuckets) => ({
+        ...currentBuckets,
+        [updatedItem.type]: [bucketItem, ...(currentBuckets[updatedItem.type] || [])],
+      }));
+
+      setEditOnRouteItemDialog({
+        open: false,
+        routeId: '',
+        item: null,
+      });
+      toast.success(
+        `${updatedItem.type} ${updatedItem.referenceId} rescheduled and returned to regular bucket.`
+      );
+      return;
+    }
+
+    if (routingAction === 'transfer') {
+      const transferredItem = {
+        ...itemForRoute,
+        status: itemForRoute.status || 'Transferred',
+        transferredFromRouteId: sourceRouteId,
+        transferredFromRouteName: sourceRoute?.routeName || '',
+        suggestedRouteId,
+      };
+      const transferredLocation = {
+        ...(sourceLocation || {}),
+        id: updatedItem.id,
+        type: updatedItem.type,
+        name: updatedItem.customerName,
+        address: updatedItem.customerAddress,
+      };
+
+      setOnRouteVehicles((currentVehicles) =>
+        currentVehicles.map((vehicle) => {
+          if (vehicle.id === sourceRouteId) {
+            return applyRouteManifestDelta(
+              {
+                ...vehicle,
+                routeItems: (vehicle.routeItems || []).filter((item) => item.id !== updatedItem.id),
+                plannedLocations: (vehicle.plannedLocations || []).filter(
+                  (location) => location.id !== updatedItem.id
+                ),
+                takenLocations: (vehicle.takenLocations || []).filter(
+                  (location) => location.id !== updatedItem.id
+                ),
+              },
+              updatedItem,
+              'remove'
+            );
+          }
+
+          if (vehicle.id === targetRouteId) {
+            const routeItems = (vehicle.routeItems || []).some((item) => item.id === updatedItem.id)
+              ? (vehicle.routeItems || []).map((item) =>
+                  item.id === updatedItem.id ? transferredItem : item
+                )
+              : [...(vehicle.routeItems || []), transferredItem];
+            const plannedLocations = (vehicle.plannedLocations || []).some(
+              (location) => location.id === updatedItem.id
+            )
+              ? (vehicle.plannedLocations || []).map((location) =>
+                  location.id === updatedItem.id ? transferredLocation : location
+                )
+              : [...(vehicle.plannedLocations || []), transferredLocation];
+
+            return applyRouteManifestDelta(
+              {
+                ...vehicle,
+                routeItems,
+                plannedLocations,
+              },
+              updatedItem,
+              'add'
+            );
+          }
+
+          return vehicle;
+        })
+      );
+
+      setSelectedOnRouteId(targetRouteId);
+      setEditOnRouteItemDialog({
+        open: false,
+        routeId: '',
+        item: null,
+      });
+      toast.success(
+        `${updatedItem.type} ${updatedItem.referenceId} transferred to ${targetRoute?.routeName || 'selected route'}.`
+      );
+      return;
+    }
+
     setOnRouteVehicles((currentVehicles) =>
       currentVehicles.map((vehicle) => {
-        if (vehicle.id !== editOnRouteItemDialog.routeId) {
+        if (vehicle.id !== sourceRouteId) {
           return vehicle;
         }
 
         return {
           ...vehicle,
           routeItems: (vehicle.routeItems || []).map((item) =>
-            item.id === updatedItem.id ? updatedItem : item
+            item.id === updatedItem.id ? itemForRoute : item
           ),
           plannedLocations: (vehicle.plannedLocations || []).map((location) =>
             location.id === updatedItem.id
               ? {
                     ...location,
                     address: updatedItem.customerAddress,
+                    name: updatedItem.customerName,
                   }
                 : location
             ),
@@ -1902,6 +2308,7 @@ const SmartTripCreationPage = () => {
                 ? {
                     ...location,
                     address: updatedItem.customerAddress,
+                    name: updatedItem.customerName,
                   }
                 : location
             ),
@@ -1968,6 +2375,7 @@ const SmartTripCreationPage = () => {
               onRaiseMarketVehicleRequest={handleRaiseMarketVehicleRequest}
               onOpenAddVehicleDialog={() => setAddVehicleDialogOpen(true)}
               addVehicleDisabled={addVehicleDisabled}
+              onRemoveUnpickedPrqs={removeUnpickedPrqsFromTrip}
             />
           ) : (
             <div className="space-y-6">
@@ -2152,6 +2560,25 @@ const SmartTripCreationPage = () => {
         </TabsContent>
 
         <TabsContent value="on-route" className="outline-none space-y-4">
+          {(routeExceptionBuckets.PRQ.length > 0 || routeExceptionBuckets.CN.length > 0) ? (
+            <div className="grid gap-3 rounded-2xl border bg-muted/10 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="lg:col-span-2">
+                <p className="text-sm font-semibold">Regular bucket returns</p>
+                <p className="text-xs text-muted-foreground">
+                  Rescheduled route items are removed from active routes and held here for fresh planning.
+                </p>
+              </div>
+              <div className="rounded-xl border bg-background px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">PRQ bucket</p>
+                <p className="mt-1 text-lg font-semibold">{routeExceptionBuckets.PRQ.length}</p>
+              </div>
+              <div className="rounded-xl border bg-background px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">CN bucket</p>
+                <p className="mt-1 text-lg font-semibold">{routeExceptionBuckets.CN.length}</p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="space-y-4 xl:col-span-1 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
               {selectedOnRouteId && (
@@ -2312,7 +2739,19 @@ const SmartTripCreationPage = () => {
                                 </div>
                               </TableCell>
                               <TableCell className="max-w-[260px]">
-                                <p className="line-clamp-2 text-sm text-muted-foreground">{item.customerAddress}</p>
+                                <div className="space-y-1">
+                                  <p className="line-clamp-2 text-sm text-muted-foreground">{item.customerAddress}</p>
+                                  {item.routeMisfit ? (
+                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                      Address misfit
+                                    </span>
+                                  ) : null}
+                                  {item.transferredFromRouteName ? (
+                                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                                      From {item.transferredFromRouteName}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </TableCell>
                               <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                                 {item.type === 'PRQ'
@@ -2412,6 +2851,8 @@ const SmartTripCreationPage = () => {
           }))
         }
         item={editOnRouteItemDialog.item}
+        availableRoutes={onRouteVehicles}
+        currentRouteId={editOnRouteItemDialog.routeId}
         onSave={handleSaveOnRouteItem}
       />
     </div>

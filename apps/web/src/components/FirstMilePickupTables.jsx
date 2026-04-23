@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { AlertTriangle, Edit, MapPin } from 'lucide-react';
+import { AlertTriangle, Edit, Info, MapPin } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDateTime } from '@/utils/formatters';
 
@@ -90,6 +90,18 @@ const FlagCell = ({ reason }) => (
     <span className="text-muted-foreground">-</span>
   )
 );
+
+const ftlStatusStageMap = {
+  'Sourcing in Progress': 'placement',
+  'Vehicle Allocated': 'placement',
+  'Vehicle Reported': 'placement',
+  'Loading in Progress': 'placement',
+  Dispatched: 'intransit',
+  'In Transit': 'intransit',
+  'Reached Destination': 'delivery',
+  Delivered: 'delivery',
+  'POD Received': 'delivery',
+};
 
 export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
   <TooltipProvider>
@@ -231,6 +243,7 @@ export const FTLPickupsTable = ({
   onUpdate,
   onViewMap,
   onTriggerMarketSourcing,
+  onViewProcurer,
 }) => (
   <TooltipProvider>
     <TableShell>
@@ -255,7 +268,13 @@ export const FTLPickupsTable = ({
         </TableHeader>
         <TableBody>
           {data.length > 0 ? (
-            data.map((pickup) => (
+            data.map((pickup) => {
+              const ftlStage = ftlStatusStageMap[pickup.status] || 'placement';
+              const showViewDetailsAction = ftlStage === 'placement';
+              const showRouteMapAction = ftlStage === 'intransit' || ftlStage === 'delivery';
+              const showLiveTrackAction = pickup.status === 'Vehicle Allocated';
+
+              return (
               <TableRow key={pickup.id}>
                 <TableCell className="font-medium whitespace-nowrap">{pickup.prqId}</TableCell>
                 <TableCell>{pickup.customer}</TableCell>
@@ -323,24 +342,54 @@ export const FTLPickupsTable = ({
                   <FlagCell reason={pickup.yellowFlagReason} />
                 </TableCell>
                 <TableCell className="text-right">
-                  {!pickup.recommendedVehicleAvailable ? (
-                    pickup.marketSourcingRequested ? (
-                      <span className="text-sm text-muted-foreground">Request sent</span>
-                    ) : (
+                  <div className="flex flex-col items-end gap-2">
+                    {showViewDetailsAction ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewProcurer(pickup)}
+                        className="whitespace-nowrap"
+                      >
+                        <Info className="mr-1.5 h-4 w-4" />
+                        View Details
+                      </Button>
+                    ) : null}
+
+                    {showRouteMapAction || showLiveTrackAction ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onViewMap(pickup.customerAddress)}
+                        className="whitespace-nowrap"
+                      >
+                        <MapPin className="mr-1.5 h-4 w-4" />
+                        {showLiveTrackAction ? 'Live Track' : 'View Map'}
+                      </Button>
+                    ) : null}
+
+                    {!pickup.recommendedVehicleAvailable && showViewDetailsAction ? (
+                      pickup.marketSourcingRequested ? (
+                        <span className="text-sm text-muted-foreground">Request sent</span>
+                      ) : (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onTriggerMarketSourcing(pickup)}
+                        className="whitespace-nowrap"
                       >
                         Trigger Market Sourcing
                       </Button>
-                    )
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Auto selected</span>
-                  )}
+                      )
+                    ) : null}
+
+                    {pickup.recommendedVehicleAvailable && showViewDetailsAction ? (
+                      <span className="text-sm text-muted-foreground">Auto selected</span>
+                    ) : null}
+                  </div>
                 </TableCell>
               </TableRow>
-            ))
+              );
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={14} className="h-24 text-center text-muted-foreground">

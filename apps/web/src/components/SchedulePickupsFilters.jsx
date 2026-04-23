@@ -15,7 +15,7 @@ import {
   subMonths 
 } from 'date-fns';
 
-const SchedulePickupsFilters = ({ filters, onFilterChange }) => {
+const SchedulePickupsFilters = ({ filters, onFilterChange, statusOptions = ['Confirmed', 'Pending', 'Cancelled', 'Rescheduled'] }) => {
   
   const handleSearchChange = (e) => {
     onFilterChange({ ...filters, search: e.target.value });
@@ -117,9 +117,9 @@ const SchedulePickupsFilters = ({ filters, onFilterChange }) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Statuses</SelectItem>
-            <SelectItem value="Confirmed">Confirmed</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Cancelled">Cancelled</SelectItem>
+            {statusOptions.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
