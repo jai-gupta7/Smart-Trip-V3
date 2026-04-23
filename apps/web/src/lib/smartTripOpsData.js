@@ -97,6 +97,10 @@ const createOffsetClone = (parent, index) => {
     location.lng += offsetLng;
   });
 
+  clone.routeItems?.forEach((item) => {
+    item.id += `_${index}`;
+  });
+
   return clone;
 };
 
@@ -129,6 +133,29 @@ export const smartTripOnRouteVehicles = (() => {
         { id: 'L1', type: 'PRQ', address: 'Andheri', name: 'Andheri', lat: 19.1136, lng: 72.8697 },
         { id: 'L1_mid', type: 'WAYPOINT', address: 'Kurla', name: 'Kurla', lat: 19.0728, lng: 72.8826 },
       ],
+      routeItems: [
+        {
+          id: 'L1',
+          type: 'PRQ',
+          referenceId: 'PRQ-91021',
+          customerName: 'Metro Cash & Carry',
+          customerAddress: 'Warehouse 3, Andheri MIDC, Mumbai',
+          pocName: 'Nitin Gupta',
+          pocPhone: '+91 98190 44021',
+          pickupSlot: '11:10 - 11:40',
+          estimatedWeight: '420 kg',
+          status: 'Picked',
+        },
+        {
+          id: 'L2',
+          type: 'CN',
+          referenceId: 'CN-88041',
+          customerName: 'Reliance Retail',
+          customerAddress: 'Plot 12, TTC Industrial Area, Vashi',
+          status: 'Delivered',
+          estimatedWeight: '510 kg',
+        },
+      ],
     },
     {
       id: 'OR-02',
@@ -157,6 +184,38 @@ export const smartTripOnRouteVehicles = (() => {
         { id: 'L3', type: 'PRQ', address: 'Bandra', name: 'Bandra', lat: 19.0596, lng: 72.8295 },
         { id: 'L4', type: 'CN', address: 'Sion', name: 'Sion', lat: 19.039, lng: 72.8619 },
       ],
+      routeItems: [
+        {
+          id: 'L3',
+          type: 'PRQ',
+          referenceId: 'PRQ-91045',
+          customerName: 'Fresh Basket',
+          customerAddress: 'Linking Road Hub, Bandra West, Mumbai',
+          pocName: 'Shreya Kulkarni',
+          pocPhone: '+91 98190 44045',
+          pickupSlot: '09:05 - 09:25',
+          estimatedWeight: '280 kg',
+          status: 'Picked',
+        },
+        {
+          id: 'L4',
+          type: 'CN',
+          referenceId: 'CN-88058',
+          customerName: 'SmartBuy Stores',
+          customerAddress: 'Central Depot, Sion Circle, Mumbai',
+          status: 'Delivered',
+          estimatedWeight: '360 kg',
+        },
+        {
+          id: 'L5',
+          type: 'CN',
+          referenceId: 'CN-88064',
+          customerName: 'Urban Mart',
+          customerAddress: 'Majiwada Retail Point, Thane West',
+          status: 'Pending Delivery',
+          estimatedWeight: '410 kg',
+        },
+      ],
     },
     {
       id: 'OR-03',
@@ -184,6 +243,41 @@ export const smartTripOnRouteVehicles = (() => {
       takenLocations: [
         { id: 'L6', type: 'PRQ', address: 'Turbhe', name: 'Turbhe', lat: 19.07, lng: 73.0188 },
         { id: 'L7_mid', type: 'WAYPOINT', address: 'Kopar Khairane', name: 'Kopar Khairane', lat: 19.103, lng: 73.008 },
+      ],
+      routeItems: [
+        {
+          id: 'L6',
+          type: 'PRQ',
+          referenceId: 'PRQ-91083',
+          customerName: 'Neptune Components',
+          customerAddress: 'Unit 18, Turbhe MIDC, Navi Mumbai',
+          pocName: 'Rakesh Shetty',
+          pocPhone: '+91 98190 44083',
+          pickupSlot: '07:40 - 08:05',
+          estimatedWeight: '610 kg',
+          status: 'Picked',
+        },
+        {
+          id: 'L7',
+          type: 'CN',
+          referenceId: 'CN-88092',
+          customerName: 'Industrial Spares Hub',
+          customerAddress: 'Mahape Electronic Zone, Navi Mumbai',
+          status: 'Delivered',
+          estimatedWeight: '520 kg',
+        },
+        {
+          id: 'L8',
+          type: 'PRQ',
+          referenceId: 'PRQ-91089',
+          customerName: 'Harbor Trade Link',
+          customerAddress: 'Rabale MIDC Gate 2, Navi Mumbai',
+          pocName: 'Aarti Naik',
+          pocPhone: '+91 98190 44089',
+          pickupSlot: '13:15 - 13:45',
+          estimatedWeight: '350 kg',
+          status: 'Pending Pickup',
+        },
       ],
     },
   ];

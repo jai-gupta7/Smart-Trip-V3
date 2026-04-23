@@ -18,6 +18,7 @@ import {
   getPotentialPickups,
   getRequestedPickups,
   getSchedulePickups,
+  schedulePickupsData,
 } from '@/lib/dummyData';
 import { toast } from 'sonner';
 
@@ -48,6 +49,35 @@ const ftlStatusStageMap = {
   Delivered: 'delivery',
   'POD Received': 'delivery',
 };
+
+const getNextSubPrqSequence = (rows, mainPickupId) =>
+  rows
+    .filter((row) => row.parentPickupId === mainPickupId && row.prqMode === 'Sub-Scheduled')
+    .reduce((maxValue, row) => Math.max(maxValue, Number(row.subPrqSequence || 0)), 0) + 1;
+
+const buildSubPrqRow = (mainPickup, additionalVehicle, sequence, existingSubRow) => ({
+  ...(existingSubRow || {}),
+  ...mainPickup,
+  id: existingSubRow?.id || `${mainPickup.id}-sub-${sequence}`,
+  pickupId: `${mainPickup.parentPickupId || mainPickup.pickupId}S${sequence}`,
+  parentPickupId: mainPickup.parentPickupId || mainPickup.pickupId,
+  subPrqSequence: sequence,
+  prqMode: 'Sub-Scheduled',
+  selectedVehicleId: additionalVehicle.id,
+  vehicle: additionalVehicle.label,
+  driver: additionalVehicle.driver.name,
+  driverContact: additionalVehicle.driver,
+  transporterDetails: additionalVehicle.transporter,
+  liveVehicleRoute: additionalVehicle.routeToBranch,
+  etaToBranch: additionalVehicle.etaToBranch,
+  branchLocation: additionalVehicle.branch,
+  additionalVehicleId: '',
+  additionalVehicleDetails: null,
+  subPrqId: '',
+  generatedSubPrqId: '',
+  marketVehicleRequest: null,
+  editCount: existingSubRow?.editCount || 0,
+});
 
 const FirstMilePage = () => {
   const navigate = useNavigate();
@@ -95,10 +125,49 @@ const FirstMilePage = () => {
   };
 
   const handleSavePickup = (updatedPickup) => {
-    setScheduleData((prevData) =>
-      prevData.map((pickup) => (pickup.id === updatedPickup.id ? updatedPickup : pickup))
-    );
-    toast.success(`Pickup ${updatedPickup.pickupId} updated successfully`);
+    setScheduleData((prevData) => {
+      const currentPickup = prevData.find((pickup) => pickup.id === updatedPickup.id) || updatedPickup;
+      const nextEditCount = Number(currentPickup.editCount || 0) + 1;
+      const nextPickup = {
+        ...updatedPickup,
+        editCount: nextEditCount,
+      };
+
+      const nextData = prevData.map((pickup) => (pickup.id === nextPickup.id ? nextPickup : pickup));
+      const baseMainPickupId = nextPickup.parentPickupId || nextPickup.pickupId;
+      const existingSiblingSubRows = nextData.filter(
+        (pickup) => pickup.parentPickupId === baseMainPickupId && pickup.id !== nextPickup.id
+      );
+
+      let mergedData = nextData;
+
+      if (nextPickup.additionalVehicleDetails) {
+        const explicitSequence = Number((nextPickup.generatedSubPrqId || '').split('S').pop());
+        const sequence =
+          Number.isFinite(explicitSequence) && explicitSequence > 0
+            ? explicitSequence
+            : getNextSubPrqSequence(nextData, baseMainPickupId);
+        const existingSubRow = existingSiblingSubRows.find((pickup) => pickup.subPrqSequence === sequence);
+        const subPrqRow = buildSubPrqRow(nextPickup, nextPickup.additionalVehicleDetails, sequence, existingSubRow);
+
+        mergedData = mergedData
+          .filter((pickup) => pickup.id !== subPrqRow.id)
+          .concat(subPrqRow)
+          .sort((first, second) => new Date(first.slot).getTime() - new Date(second.slot).getTime());
+      } else if (nextPickup.prqMode !== 'Sub-Scheduled') {
+        mergedData = mergedData.filter((pickup) => pickup.parentPickupId !== baseMainPickupId);
+      }
+
+      schedulePickupsData.length = 0;
+      schedulePickupsData.push(...mergedData);
+
+      if (nextEditCount > 3) {
+        toast.warning(`PRQ ${nextPickup.pickupId} has been edited more than 3 times.`);
+      }
+
+      toast.success(`Pickup ${nextPickup.pickupId} updated successfully`);
+      return mergedData;
+    });
   };
 
   const openFirstMileEdit = (type, pickup) => {
@@ -309,6 +378,9 @@ const FirstMilePage = () => {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         pickup={editingPickup}
+        nextSubPrqSequence={
+          editingPickup ? getNextSubPrqSequence(scheduleData, editingPickup.parentPickupId || editingPickup.pickupId) : 1
+        }
         onSave={handleSavePickup}
       />
 

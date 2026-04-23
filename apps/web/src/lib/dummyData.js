@@ -60,11 +60,129 @@ export const schedulePickupsData = [
   { id: '18', pickupId: 'SP-2864', customerName: 'Biocon Limited', location: { name: 'Borivali, Mumbai', lat: 19.2307, lng: 72.8567 }, slot: '2026-04-23T09:00', operatorName: 'Amit Ops', vehicle: 'MH-04-IJ-0123 (32ft)', driver: 'Anil Kumar', poc: { name: 'Ramesh Powar', phone: '+91 9876543227' }, status: 'Cancelled' },
 ].map((item, index) => ({
   ...item,
+  prqMode: index % 4 === 1 ? 'API' : 'Scheduled',
+  editCount: 0,
+  parentPickupId: null,
+  subPrqSequence: null,
   operatorContact: getOperatorContact(item.operatorName, index),
   driverContact: getDriverContact(item.driver, index),
   yellowFlagReason:
     index % 5 === 0 ? 'Contact detail mismatch detected during dispatch readiness check.' : '',
 }));
+
+const scheduledPickupBranchNodes = [
+  { id: 'SCH-BR-01', name: 'Pune Consolidation Center', lat: 18.5348, lng: 73.8762 },
+  { id: 'SCH-BR-02', name: 'Mumbai Linehaul Branch', lat: 19.1075, lng: 72.8826 },
+  { id: 'SCH-BR-03', name: 'Navi Mumbai Cross Dock', lat: 19.0365, lng: 73.0207 },
+  { id: 'SCH-BR-04', name: 'Thane Feeder Bay', lat: 19.2049, lng: 72.9763 },
+  { id: 'SCH-BR-05', name: 'Kalyan Regional Dock', lat: 19.2502, lng: 73.1380 },
+  { id: 'SCH-BR-06', name: 'Nashik Consolidation Hub', lat: 19.9944, lng: 73.7691 },
+];
+
+const scheduledPickupTransporters = [
+  { name: 'Sai Carriers', phone: '+91 90045 21001', coordinator: 'Sanjay More', lane: 'Branch feeder' },
+  { name: 'Metro Fleet Services', phone: '+91 90045 21002', coordinator: 'Namrata Kulkarni', lane: 'Dedicated shuttle' },
+  { name: 'Western Link Logistics', phone: '+91 90045 21003', coordinator: 'Naveen Shetty', lane: 'Milk run feeder' },
+  { name: 'RapidHaul Transport', phone: '+91 90045 21004', coordinator: 'Dinesh Pawar', lane: 'Priority pickup lane' },
+];
+
+const buildScheduledPickupRouteToBranch = (branch, index) => {
+  const offset = index % 4;
+  const start = {
+    id: `${branch.id}-start-${index}`,
+    name: 'Vehicle dispatched',
+    type: 'Pickup',
+    lat: Number((branch.lat - 0.16 + offset * 0.01).toFixed(6)),
+    lng: Number((branch.lng - 0.18 + offset * 0.012).toFixed(6)),
+  };
+  const checkpoint = {
+    id: `${branch.id}-checkpoint-${index}`,
+    name: 'Current vehicle position',
+    type: 'Pickup',
+    lat: Number((branch.lat - 0.07 + offset * 0.004).toFixed(6)),
+    lng: Number((branch.lng - 0.08 + offset * 0.005).toFixed(6)),
+  };
+  const destination = {
+    id: `${branch.id}-destination-${index}`,
+    name: branch.name,
+    type: 'Drop',
+    lat: branch.lat,
+    lng: branch.lng,
+  };
+
+  return {
+    takenLocations: [start, checkpoint],
+    plannedLocations: [checkpoint, destination],
+  };
+};
+
+export const scheduledPickupVehicleOptions = schedulePickupsData.map((pickup, index) => {
+  const branch = scheduledPickupBranchNodes[index % scheduledPickupBranchNodes.length];
+  const transporter = scheduledPickupTransporters[index % scheduledPickupTransporters.length];
+  const routeToBranch = buildScheduledPickupRouteToBranch(branch, index);
+  const vehicleNumber = pickup.vehicle.match(/[A-Z]{2}-\d{2}-[A-Z]{2}-\d{4}/)?.[0] || pickup.vehicle;
+
+  return {
+    id: `SP-VH-${String(index + 1).padStart(3, '0')}`,
+    label: pickup.vehicle,
+    vehicleNumber,
+    vehicleType: pickup.vehicle.split('(')[1]?.replace(')', '') || 'Standard truck',
+    currentStatus: index % 3 === 0 ? 'Approaching branch' : index % 3 === 1 ? 'Waiting at checkpoint' : 'On feeder route',
+    etaToBranch: ['18 min', '24 min', '31 min', '12 min', '27 min', '35 min'][index % 6],
+    branch,
+    driver: getDriverContact(pickup.driver, index),
+    transporter: {
+      ...transporter,
+      etaDesk: `Desk ${String((index % 4) + 1).padStart(2, '0')}`,
+    },
+    routeToBranch,
+  };
+});
+
+export const scheduledPickupTripsInProgress = [
+  'Pune West feeder run',
+  'Mumbai north shuttle',
+  'Navi Mumbai milk run',
+  'Thane priority pickup loop',
+  'Kalyan retailer feeder',
+  'Nashik branch replenishment',
+].map((name, index) => {
+  const vehicle = scheduledPickupVehicleOptions[index];
+
+  return {
+    id: `SP-TRIP-${701 + index}`,
+    name,
+    status: index % 2 === 0 ? 'In Progress' : 'Vehicle Reaching Branch',
+    vehicleId: vehicle.id,
+    branchName: vehicle.branch.name,
+    etaToBranch: vehicle.etaToBranch,
+    prqCount: 4 + index,
+    touchPoints: 6 + index,
+    utilization: `${62 + index * 4}%`,
+  };
+});
+
+schedulePickupsData.forEach((pickup, index) => {
+  const associatedVehicle =
+    scheduledPickupVehicleOptions.find((vehicle) => vehicle.label === pickup.vehicle) ||
+    scheduledPickupVehicleOptions[index % scheduledPickupVehicleOptions.length];
+  const associatedTrip =
+    index % 4 === 1
+      ? null
+      : scheduledPickupTripsInProgress[index % scheduledPickupTripsInProgress.length];
+
+  Object.assign(pickup, {
+    assignedTripId: associatedTrip?.id || '__create_new__',
+    selectedVehicleId: associatedVehicle?.id || '',
+    transporterDetails: associatedVehicle?.transporter || null,
+    liveVehicleRoute: associatedVehicle?.routeToBranch || null,
+    etaToBranch: associatedVehicle?.etaToBranch || 'Awaiting vehicle allocation',
+    branchLocation: associatedVehicle?.branch || null,
+    additionalVehicleId: '',
+    subPrqId: '',
+    marketVehicleRequest: null,
+  });
+});
 
 export const getSchedulePickups = (filters = {}) => {
   let filteredData = [...schedulePickupsData];
@@ -346,7 +464,7 @@ export const requestedPickups = [
     pickupSlot: '2026-04-21T15:30',
     estimatedWeight: '2,345 kg',
     loadType: 'Loose Cartons',
-    prqMode: 'Bulk Upload',
+    prqMode: 'Scheduled',
     yellowFlagReason: '',
     status: 'Confirmed',
   },
@@ -372,7 +490,7 @@ export const requestedPickups = [
     pickupSlot: '2026-04-22T09:00',
     estimatedWeight: '3,280 kg',
     loadType: 'Machinery',
-    prqMode: 'Chatbot',
+    prqMode: 'Scheduled',
     yellowFlagReason: '',
     status: 'Confirmed',
   },
@@ -411,7 +529,7 @@ export const requestedPickups = [
     pickupSlot: '2026-04-22T14:45',
     estimatedWeight: '4,380 kg',
     loadType: 'Tyres',
-    prqMode: 'Manual Entry',
+    prqMode: 'Scheduled',
     yellowFlagReason: 'Expected weight is above route average and needs review.',
     status: 'Cancelled',
   },
@@ -450,7 +568,7 @@ export const requestedPickups = [
     pickupSlot: '2026-04-23T11:10',
     estimatedWeight: '2,260 kg',
     loadType: 'Finished Goods',
-    prqMode: 'Manual Entry',
+    prqMode: 'Scheduled',
     yellowFlagReason: 'Customer address geocode is low confidence.',
     status: 'Rescheduled',
   },

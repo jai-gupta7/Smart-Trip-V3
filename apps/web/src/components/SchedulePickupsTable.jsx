@@ -70,6 +70,7 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
           <TableHeader>
             <TableRow>
               <SortableHead label="Pickup ID" sortKey="pickupId" />
+              <SortableHead label="PRQ Mode" sortKey="prqMode" />
               <SortableHead label="Customer Name" sortKey="customerName" />
               <SortableHead label="Location" sortKey="locationName" />
               <SortableHead label="Slot" sortKey="slot" />
@@ -87,6 +88,11 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
               sortedData.map((pickup) => (
                 <TableRow key={pickup.id}>
                   <TableCell className="font-medium">{pickup.pickupId}</TableCell>
+                  <TableCell>
+                    <span className="rounded-full border bg-muted/30 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
+                      {pickup.prqMode || 'Scheduled'}
+                    </span>
+                  </TableCell>
                   <TableCell>{pickup.customerName}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 max-w-[200px]">
@@ -166,7 +172,7 @@ const SchedulePickupsTable = ({ data, onViewMap, onEdit }) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                   No pickups found for the selected filters.
                 </TableCell>
               </TableRow>

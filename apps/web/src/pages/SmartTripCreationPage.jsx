@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -485,6 +486,121 @@ const RemoveCnDialog = ({ open, onOpenChange, stop, reason, onReasonChange, onSu
   </Dialog>
 );
 
+const EditOnRoutePrqDialog = ({ open, onOpenChange, prq, onSave }) => {
+  const [formValues, setFormValues] = useState({
+    pocName: '',
+    pocPhone: '',
+    pickupSlot: '',
+    customerAddress: '',
+    estimatedWeight: '',
+  });
+
+  useEffect(() => {
+    setFormValues({
+      pocName: prq?.pocName || '',
+      pocPhone: prq?.pocPhone || '',
+      pickupSlot: prq?.pickupSlot || '',
+      customerAddress: prq?.customerAddress || '',
+      estimatedWeight: prq?.estimatedWeight || '',
+    });
+  }, [prq]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Edit PRQ Details</DialogTitle>
+          <DialogDescription>
+            Update operational details for <span className="font-medium text-foreground">{prq?.referenceId}</span>.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="on-route-poc-name">POC Name</Label>
+              <Input
+                id="on-route-poc-name"
+                value={formValues.pocName}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, pocName: event.target.value }))
+                }
+                placeholder="Contact person name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="on-route-poc-phone">POC Phone</Label>
+              <Input
+                id="on-route-poc-phone"
+                value={formValues.pocPhone}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, pocPhone: event.target.value }))
+                }
+                placeholder="Contact number"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="on-route-pickup-slot">Pickup Slot</Label>
+            <Input
+              id="on-route-pickup-slot"
+              value={formValues.pickupSlot}
+              onChange={(event) =>
+                setFormValues((current) => ({ ...current, pickupSlot: event.target.value }))
+              }
+              placeholder="Pickup window"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="on-route-customer-address">Customer Address</Label>
+            <Textarea
+              id="on-route-customer-address"
+              value={formValues.customerAddress}
+              onChange={(event) =>
+                setFormValues((current) => ({ ...current, customerAddress: event.target.value }))
+              }
+              placeholder="Customer pickup address"
+              className="min-h-[96px] resize-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="on-route-estimated-weight">Estimated Weight</Label>
+            <Input
+              id="on-route-estimated-weight"
+              value={formValues.estimatedWeight}
+              onChange={(event) =>
+                setFormValues((current) => ({ ...current, estimatedWeight: event.target.value }))
+              }
+              placeholder="Estimated weight"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              if (!prq) return;
+              onSave({
+                ...prq,
+                ...formValues,
+              });
+            }}
+          >
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const VehicleSourcingPanel = ({
   trip,
   onAutoAssign,
@@ -808,6 +924,9 @@ const TripRouteDetail = ({
   const visibleStops = trip.cardStops || trip.stops;
   const stopsCount = visibleStops.length;
   const runningHoursExceeded = trip.runningHoursApprovalRequired;
+  const hasVehicleStrategy = Boolean(
+    trip.vehicleConstraint && Number(trip.vehicleConstraint.requiredVehicleCount || 0) > 1
+  );
   const routeSummaryMetrics = [
     { label: 'Stops', value: stopsCount },
     { label: 'Est. Time', value: trip.estimatedTime },
@@ -898,8 +1017,14 @@ const TripRouteDetail = ({
         <Tabs defaultValue="route-plan" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="route-plan">Route Plan</TabsTrigger>
-            <TabsTrigger value="vehicle-strategy">Vehicle Strategy</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            {hasVehicleStrategy ? (
+              <TabsTrigger value="vehicle-strategy">
+                <span className="inline-flex items-center gap-2">
+                  Vehicle Strategy
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                </span>
+              </TabsTrigger>
+            ) : null}
           </TabsList>
 
           <TabsContent value="route-plan" className="space-y-4 outline-none">
@@ -994,25 +1119,7 @@ const TripRouteDetail = ({
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="vehicle-strategy" className="space-y-4 outline-none">
-            <VehicleConstraintPanel
-              trip={trip}
-              onOpenAddVehicleDialog={onOpenAddVehicleDialog}
-              addVehicleDisabled={addVehicleDisabled}
-            />
-
-            <VehicleSourcingPanel
-              trip={trip}
-              onAutoAssign={onAutoAssignVehicle}
-              onSelectNearbyVehicle={onSelectNearbyVehicle}
-              onSendBranchRequest={onSendBranchVehicleRequest}
-              onRaiseMarketRequest={onRaiseMarketVehicleRequest}
-            />
-          </TabsContent>
-
-          <TabsContent value="assignments" className="space-y-4 outline-none">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-xl font-semibold">Driver & Vehicle Assignment</h3>
@@ -1120,6 +1227,24 @@ const TripRouteDetail = ({
               </Card>
             </div>
           </TabsContent>
+
+          {hasVehicleStrategy ? (
+            <TabsContent value="vehicle-strategy" className="space-y-4 outline-none">
+              <VehicleConstraintPanel
+                trip={trip}
+                onOpenAddVehicleDialog={onOpenAddVehicleDialog}
+                addVehicleDisabled={addVehicleDisabled}
+              />
+
+              <VehicleSourcingPanel
+                trip={trip}
+                onAutoAssign={onAutoAssignVehicle}
+                onSelectNearbyVehicle={onSelectNearbyVehicle}
+                onSendBranchRequest={onSendBranchVehicleRequest}
+                onRaiseMarketRequest={onRaiseMarketVehicleRequest}
+              />
+            </TabsContent>
+          ) : null}
         </Tabs>
       </CardContent>
     </Card>
@@ -1251,6 +1376,9 @@ const SmartTripCreationPage = () => {
   const [searchParams] = useSearchParams();
 
   const [trips, setTrips] = useState(() => cloneTrips());
+  const [onRouteVehicles, setOnRouteVehicles] = useState(() =>
+    JSON.parse(JSON.stringify(smartTripOnRouteVehicles))
+  );
   const [smartTripTab, setSmartTripTab] = useState('recommended');
   const [selectedOnRouteId, setSelectedOnRouteId] = useState(null);
   const [selectedLoadingCartId, setSelectedLoadingCartId] = useState(null);
@@ -1273,6 +1401,11 @@ const SmartTripCreationPage = () => {
   const [runningHoursReason, setRunningHoursReason] = useState('');
   const [addVehicleDialogOpen, setAddVehicleDialogOpen] = useState(false);
   const [selectedAdditionalVehicleId, setSelectedAdditionalVehicleId] = useState('');
+  const [editOnRoutePrqDialog, setEditOnRoutePrqDialog] = useState({
+    open: false,
+    routeId: '',
+    prq: null,
+  });
 
   const smartTripDrivers = useMemo(() => getSmartTripDrivers(), []);
   const smartTripVehicles = useMemo(() => getSmartTripVehicles(), []);
@@ -1351,9 +1484,14 @@ const SmartTripCreationPage = () => {
   const visibleOnRouteVehicles = useMemo(
     () =>
       selectedOnRouteId
-        ? smartTripOnRouteVehicles.filter((vehicle) => vehicle.id === selectedOnRouteId)
-        : smartTripOnRouteVehicles,
-    [selectedOnRouteId]
+        ? onRouteVehicles.filter((vehicle) => vehicle.id === selectedOnRouteId)
+        : onRouteVehicles,
+    [onRouteVehicles, selectedOnRouteId]
+  );
+
+  const selectedOnRouteVehicle = useMemo(
+    () => onRouteVehicles.find((vehicle) => vehicle.id === selectedOnRouteId) || null,
+    [onRouteVehicles, selectedOnRouteId]
   );
 
   const onRouteMapRoutes = useMemo(
@@ -1705,6 +1843,56 @@ const SmartTripCreationPage = () => {
     toast.success(`Add PRQ flow opened for ${route.routeName}.`);
   };
 
+  const handleOpenOnRoutePrqEditor = (routeId, prq) => {
+    setEditOnRoutePrqDialog({
+      open: true,
+      routeId,
+      prq,
+    });
+  };
+
+  const handleSaveOnRoutePrq = (updatedPrq) => {
+    if (!editOnRoutePrqDialog.routeId || !updatedPrq) return;
+
+    setOnRouteVehicles((currentVehicles) =>
+      currentVehicles.map((vehicle) => {
+        if (vehicle.id !== editOnRoutePrqDialog.routeId) {
+          return vehicle;
+        }
+
+        return {
+          ...vehicle,
+          routeItems: (vehicle.routeItems || []).map((item) =>
+            item.id === updatedPrq.id ? updatedPrq : item
+          ),
+          plannedLocations: (vehicle.plannedLocations || []).map((location) =>
+            location.id === updatedPrq.id
+              ? {
+                  ...location,
+                  address: updatedPrq.customerAddress,
+                }
+              : location
+          ),
+          takenLocations: (vehicle.takenLocations || []).map((location) =>
+            location.id === updatedPrq.id
+              ? {
+                  ...location,
+                  address: updatedPrq.customerAddress,
+                }
+              : location
+          ),
+        };
+      })
+    );
+
+    setEditOnRoutePrqDialog({
+      open: false,
+      routeId: '',
+      prq: null,
+    });
+    toast.success(`PRQ ${updatedPrq.referenceId} updated successfully.`);
+  };
+
   const addVehicleDisabled =
     !activeTrip?.vehicleConstraint ||
     availableAdditionalVehicles.length === 0 ||
@@ -2018,25 +2206,118 @@ const SmartTripCreationPage = () => {
               })}
             </div>
             
-            <Card className="border-border/80 shadow-sm overflow-hidden flex flex-col xl:col-span-2 min-h-[600px]">
-              <CardHeader className="pb-3 flex-[0_0_auto]">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{selectedOnRouteId ? 'Detailed Route Tracker' : 'Fleet Live Route Map'}</CardTitle>
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 animate-pulse"></span>
-                </div>
-                <CardDescription>
-                  {selectedOnRouteId 
-                    ? 'Comparing planned route trace (dashed) vs. historical taken trace (solid).' 
-                    : 'Live location & tracking for all active routes.'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 w-full relative p-0 border-t min-h-[500px]">
-                <MapView 
-                  routes={onRouteMapRoutes} 
-                  height="100%" 
-                />
-              </CardContent>
-            </Card>
+            <div className="space-y-4 xl:col-span-2">
+              <Card className="border-border/80 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                <CardHeader className="pb-3 flex-[0_0_auto]">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{selectedOnRouteId ? 'Detailed Route Tracker' : 'Fleet Live Route Map'}</CardTitle>
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 animate-pulse"></span>
+                  </div>
+                  <CardDescription>
+                    {selectedOnRouteId
+                      ? 'Comparing planned route trace (dashed) vs. historical taken trace (solid).'
+                      : 'Live location & tracking for all active routes.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 w-full relative p-0 border-t min-h-[500px]">
+                  <MapView
+                    routes={onRouteMapRoutes}
+                    height={selectedOnRouteId ? '520px' : '680px'}
+                  />
+                </CardContent>
+              </Card>
+
+              {selectedOnRouteVehicle ? (
+                <Card className="border-border/80 shadow-sm overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <CardTitle className="text-lg">Route Manifest</CardTitle>
+                        <CardDescription>
+                          All PRQs and CNs assigned to <span className="font-medium text-foreground">{selectedOnRouteVehicle.routeName}</span>.
+                        </CardDescription>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+                          <span className="text-muted-foreground">PRQs</span>{' '}
+                          <span className="font-semibold">
+                            {(selectedOnRouteVehicle.routeItems || []).filter((item) => item.type === 'PRQ').length}
+                          </span>
+                        </div>
+                        <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+                          <span className="text-muted-foreground">CNs</span>{' '}
+                          <span className="font-semibold">
+                            {(selectedOnRouteVehicle.routeItems || []).filter((item) => item.type === 'CN').length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="border-t p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Reference</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Address</TableHead>
+                            <TableHead>Slot / Window</TableHead>
+                            <TableHead>Weight</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(selectedOnRouteVehicle.routeItems || []).map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.type === 'PRQ' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {item.type}
+                                </span>
+                              </TableCell>
+                              <TableCell className="font-medium whitespace-nowrap">{item.referenceId}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium">{item.customerName}</p>
+                                  {item.type === 'PRQ' ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      POC: {item.pocName || '-'} {item.pocPhone ? `| ${item.pocPhone}` : ''}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell className="max-w-[260px]">
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{item.customerAddress}</p>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                                {item.type === 'PRQ' ? item.pickupSlot : 'Delivery window in route plan'}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap">{item.estimatedWeight}</TableCell>
+                              <TableCell>{item.status}</TableCell>
+                              <TableCell className="text-right">
+                                {item.type === 'PRQ' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenOnRoutePrqEditor(selectedOnRouteVehicle.id, item)}
+                                  >
+                                    <PencilLine className="mr-1.5 h-4 w-4" />
+                                    Edit
+                                  </Button>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
           </div>
         </TabsContent>
 
@@ -2097,6 +2378,19 @@ const SmartTripCreationPage = () => {
           setRemoveStopDialog((currentDialog) => ({ ...currentDialog, reason }))
         }
         onSubmit={handleConfirmCnRemoval}
+      />
+
+      <EditOnRoutePrqDialog
+        open={editOnRoutePrqDialog.open}
+        onOpenChange={(open) =>
+          setEditOnRoutePrqDialog((currentDialog) => ({
+            ...currentDialog,
+            open,
+            ...(open ? {} : { routeId: '', prq: null }),
+          }))
+        }
+        prq={editOnRoutePrqDialog.prq}
+        onSave={handleSaveOnRoutePrq}
       />
     </div>
   );
