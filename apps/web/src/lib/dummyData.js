@@ -64,6 +64,12 @@ export const schedulePickupsData = [
   editCount: 0,
   parentPickupId: null,
   subPrqSequence: null,
+  lastEditedBy: index % 3 === 0 ? 'Nisha Operations' : '',
+  lastEditedAt: index % 3 === 0 ? `2026-04-${String(18 + index).padStart(2, '0')}T1${index % 5}:20` : '',
+  editedValues:
+    index % 3 === 0
+      ? ['Vehicle: feeder vehicle updated', 'POC: branch contact corrected']
+      : [],
   operatorContact: getOperatorContact(item.operatorName, index),
   driverContact: getDriverContact(item.driver, index),
   yellowFlagReason:
@@ -608,6 +614,30 @@ export const requestedPickups = [
     operatorContact,
     driver: driverContact.name,
     driverContact,
+    assignedTripId:
+      index % 4 === 0
+        ? '__create_new__'
+        : scheduledPickupTripsInProgress[index % scheduledPickupTripsInProgress.length].id,
+    selectedVehicleId:
+      scheduledPickupVehicleOptions[(index + 2) % scheduledPickupVehicleOptions.length].id,
+    transporterDetails:
+      scheduledPickupVehicleOptions[(index + 2) % scheduledPickupVehicleOptions.length].transporter,
+    liveVehicleRoute:
+      scheduledPickupVehicleOptions[(index + 2) % scheduledPickupVehicleOptions.length].routeToBranch,
+    etaToBranch:
+      scheduledPickupVehicleOptions[(index + 2) % scheduledPickupVehicleOptions.length].etaToBranch,
+    branchLocation:
+      scheduledPickupVehicleOptions[(index + 2) % scheduledPickupVehicleOptions.length].branch,
+    additionalVehicleId: '',
+    additionalVehicleDetails: null,
+    subPrqId: '',
+    marketVehicleRequest: null,
+    lastEditedBy: index % 2 === 0 ? 'Ananya Singh' : '',
+    lastEditedAt: index % 2 === 0 ? `2026-04-${String(17 + index).padStart(2, '0')}T0${(index % 5) + 9}:15` : '',
+    editedValues:
+      index % 2 === 0
+        ? ['Pickup Slot: reassigned to next feeder run', 'Customer Address: geocode adjusted']
+        : [],
   };
 });
 

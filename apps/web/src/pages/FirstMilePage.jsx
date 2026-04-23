@@ -50,6 +50,16 @@ const ftlStatusStageMap = {
   'POD Received': 'delivery',
 };
 
+const CURRENT_EDITOR = 'Jai Gupta';
+
+const getValueFromPath = (source, path) =>
+  path.split('.').reduce((current, key) => current?.[key], source);
+
+const buildEditedValues = (currentRecord, nextRecord, fieldMap) =>
+  fieldMap
+    .filter(({ path }) => getValueFromPath(currentRecord, path) !== getValueFromPath(nextRecord, path))
+    .map(({ label, path }) => `${label}: ${getValueFromPath(nextRecord, path) || '-'}`);
+
 const getNextSubPrqSequence = (rows, mainPickupId) =>
   rows
     .filter((row) => row.parentPickupId === mainPickupId && row.prqMode === 'Sub-Scheduled')
@@ -128,9 +138,19 @@ const FirstMilePage = () => {
     setScheduleData((prevData) => {
       const currentPickup = prevData.find((pickup) => pickup.id === updatedPickup.id) || updatedPickup;
       const nextEditCount = Number(currentPickup.editCount || 0) + 1;
+      const editedValues = buildEditedValues(currentPickup, updatedPickup, [
+        { label: 'Operator', path: 'operatorName' },
+        { label: 'Vehicle', path: 'vehicle' },
+        { label: 'Driver', path: 'driver' },
+        { label: 'POC Name', path: 'poc.name' },
+        { label: 'POC Phone', path: 'poc.phone' },
+      ]);
       const nextPickup = {
         ...updatedPickup,
         editCount: nextEditCount,
+        lastEditedBy: CURRENT_EDITOR,
+        lastEditedAt: new Date().toISOString(),
+        editedValues: editedValues.length ? editedValues : currentPickup.editedValues || [],
       };
 
       const nextData = prevData.map((pickup) => (pickup.id === nextPickup.id ? nextPickup : pickup));
@@ -179,14 +199,46 @@ const FirstMilePage = () => {
   const handleSaveFirstMilePickup = (updatedPickup) => {
     if (editingFirstMileType === 'potential') {
       setPotentialData((prevData) =>
-        prevData.map((pickup) => (pickup.id === updatedPickup.id ? updatedPickup : pickup))
+        prevData.map((pickup) =>
+          pickup.id === updatedPickup.id
+            ? {
+                ...updatedPickup,
+                lastEditedBy: CURRENT_EDITOR,
+                lastEditedAt: new Date().toISOString(),
+                editedValues: buildEditedValues(pickup, updatedPickup, [
+                  { label: 'Status', path: 'prqStatus' },
+                  { label: 'Pickup Date & Time', path: 'pickupDateTime' },
+                  { label: 'Customer Location', path: 'customerLocation.name' },
+                  { label: 'POC Name', path: 'poc.name' },
+                  { label: 'POC Phone', path: 'poc.phone' },
+                ]),
+              }
+            : pickup
+        )
       );
       toast.success(`Potential pickup ${updatedPickup.pickupId} updated successfully`);
       return;
     }
 
     setRequestedData((prevData) =>
-      prevData.map((pickup) => (pickup.id === updatedPickup.id ? updatedPickup : pickup))
+      prevData.map((pickup) =>
+        pickup.id === updatedPickup.id
+          ? {
+              ...updatedPickup,
+              lastEditedBy: CURRENT_EDITOR,
+              lastEditedAt: new Date().toISOString(),
+                editedValues: buildEditedValues(pickup, updatedPickup, [
+                  { label: 'Status', path: 'status' },
+                  { label: 'Pickup Slot', path: 'pickupSlot' },
+                  { label: 'Customer Address', path: 'customerAddress.name' },
+                  { label: 'POC Name', path: 'contact.name' },
+                  { label: 'POC Phone', path: 'contact.phone' },
+                  { label: 'Operator', path: 'operatorName' },
+                  { label: 'Trip Assignment', path: 'assignedTripId' },
+                ]),
+              }
+            : pickup
+        )
     );
     toast.success(`Regular pickup ${updatedPickup.prqId} updated successfully`);
   };
@@ -378,9 +430,6 @@ const FirstMilePage = () => {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         pickup={editingPickup}
-        nextSubPrqSequence={
-          editingPickup ? getNextSubPrqSequence(scheduleData, editingPickup.parentPickupId || editingPickup.pickupId) : 1
-        }
         onSave={handleSavePickup}
       />
 

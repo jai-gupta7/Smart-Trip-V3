@@ -486,32 +486,38 @@ const RemoveCnDialog = ({ open, onOpenChange, stop, reason, onReasonChange, onSu
   </Dialog>
 );
 
-const EditOnRoutePrqDialog = ({ open, onOpenChange, prq, onSave }) => {
+const EditOnRouteItemDialog = ({ open, onOpenChange, item, onSave }) => {
   const [formValues, setFormValues] = useState({
     pocName: '',
     pocPhone: '',
     pickupSlot: '',
+    appointmentSlot: '',
     customerAddress: '',
     estimatedWeight: '',
+    instructions: '',
   });
 
   useEffect(() => {
     setFormValues({
-      pocName: prq?.pocName || '',
-      pocPhone: prq?.pocPhone || '',
-      pickupSlot: prq?.pickupSlot || '',
-      customerAddress: prq?.customerAddress || '',
-      estimatedWeight: prq?.estimatedWeight || '',
+      pocName: item?.pocName || '',
+      pocPhone: item?.pocPhone || '',
+      pickupSlot: item?.pickupSlot || '',
+      appointmentSlot: item?.appointmentSlot || '',
+      customerAddress: item?.customerAddress || '',
+      estimatedWeight: item?.estimatedWeight || '',
+      instructions: item?.instructions || '',
     });
-  }, [prq]);
+  }, [item]);
+
+  const isPrq = item?.type === 'PRQ';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Edit PRQ Details</DialogTitle>
+          <DialogTitle>Edit {isPrq ? 'PRQ' : 'CN'} Details</DialogTitle>
           <DialogDescription>
-            Update operational details for <span className="font-medium text-foreground">{prq?.referenceId}</span>.
+            Update operational details for <span className="font-medium text-foreground">{item?.referenceId}</span>.
           </DialogDescription>
         </DialogHeader>
 
@@ -542,14 +548,17 @@ const EditOnRoutePrqDialog = ({ open, onOpenChange, prq, onSave }) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="on-route-pickup-slot">Pickup Slot</Label>
+            <Label htmlFor="on-route-slot">{isPrq ? 'Pickup Slot' : 'Appointment Slot'}</Label>
             <Input
-              id="on-route-pickup-slot"
-              value={formValues.pickupSlot}
+              id="on-route-slot"
+              value={isPrq ? formValues.pickupSlot : formValues.appointmentSlot}
               onChange={(event) =>
-                setFormValues((current) => ({ ...current, pickupSlot: event.target.value }))
+                setFormValues((current) => ({
+                  ...current,
+                  [isPrq ? 'pickupSlot' : 'appointmentSlot']: event.target.value,
+                }))
               }
-              placeholder="Pickup window"
+              placeholder={isPrq ? 'Pickup window' : 'Appointment slot'}
             />
           </div>
 
@@ -566,15 +575,30 @@ const EditOnRoutePrqDialog = ({ open, onOpenChange, prq, onSave }) => {
             />
           </div>
 
+          {isPrq ? (
+            <div className="space-y-2">
+              <Label htmlFor="on-route-estimated-weight">Estimated Weight</Label>
+              <Input
+                id="on-route-estimated-weight"
+                value={formValues.estimatedWeight}
+                onChange={(event) =>
+                  setFormValues((current) => ({ ...current, estimatedWeight: event.target.value }))
+                }
+                placeholder="Estimated weight"
+              />
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <Label htmlFor="on-route-estimated-weight">Estimated Weight</Label>
-            <Input
-              id="on-route-estimated-weight"
-              value={formValues.estimatedWeight}
+            <Label htmlFor="on-route-instructions">Instructions</Label>
+            <Textarea
+              id="on-route-instructions"
+              value={formValues.instructions}
               onChange={(event) =>
-                setFormValues((current) => ({ ...current, estimatedWeight: event.target.value }))
+                setFormValues((current) => ({ ...current, instructions: event.target.value }))
               }
-              placeholder="Estimated weight"
+              placeholder={isPrq ? 'Pickup handling notes' : 'Delivery instructions'}
+              className="min-h-[96px] resize-none"
             />
           </div>
         </div>
@@ -586,9 +610,9 @@ const EditOnRoutePrqDialog = ({ open, onOpenChange, prq, onSave }) => {
           <Button
             type="button"
             onClick={() => {
-              if (!prq) return;
+              if (!item) return;
               onSave({
-                ...prq,
+                ...item,
                 ...formValues,
               });
             }}
@@ -1401,10 +1425,10 @@ const SmartTripCreationPage = () => {
   const [runningHoursReason, setRunningHoursReason] = useState('');
   const [addVehicleDialogOpen, setAddVehicleDialogOpen] = useState(false);
   const [selectedAdditionalVehicleId, setSelectedAdditionalVehicleId] = useState('');
-  const [editOnRoutePrqDialog, setEditOnRoutePrqDialog] = useState({
+  const [editOnRouteItemDialog, setEditOnRouteItemDialog] = useState({
     open: false,
     routeId: '',
-    prq: null,
+    item: null,
   });
 
   const smartTripDrivers = useMemo(() => getSmartTripDrivers(), []);
@@ -1843,54 +1867,54 @@ const SmartTripCreationPage = () => {
     toast.success(`Add PRQ flow opened for ${route.routeName}.`);
   };
 
-  const handleOpenOnRoutePrqEditor = (routeId, prq) => {
-    setEditOnRoutePrqDialog({
+  const handleOpenOnRouteItemEditor = (routeId, item) => {
+    setEditOnRouteItemDialog({
       open: true,
       routeId,
-      prq,
+      item,
     });
   };
 
-  const handleSaveOnRoutePrq = (updatedPrq) => {
-    if (!editOnRoutePrqDialog.routeId || !updatedPrq) return;
+  const handleSaveOnRouteItem = (updatedItem) => {
+    if (!editOnRouteItemDialog.routeId || !updatedItem) return;
 
     setOnRouteVehicles((currentVehicles) =>
       currentVehicles.map((vehicle) => {
-        if (vehicle.id !== editOnRoutePrqDialog.routeId) {
+        if (vehicle.id !== editOnRouteItemDialog.routeId) {
           return vehicle;
         }
 
         return {
           ...vehicle,
           routeItems: (vehicle.routeItems || []).map((item) =>
-            item.id === updatedPrq.id ? updatedPrq : item
+            item.id === updatedItem.id ? updatedItem : item
           ),
           plannedLocations: (vehicle.plannedLocations || []).map((location) =>
-            location.id === updatedPrq.id
+            location.id === updatedItem.id
               ? {
-                  ...location,
-                  address: updatedPrq.customerAddress,
-                }
-              : location
-          ),
-          takenLocations: (vehicle.takenLocations || []).map((location) =>
-            location.id === updatedPrq.id
-              ? {
-                  ...location,
-                  address: updatedPrq.customerAddress,
-                }
-              : location
-          ),
+                    ...location,
+                    address: updatedItem.customerAddress,
+                  }
+                : location
+            ),
+            takenLocations: (vehicle.takenLocations || []).map((location) =>
+              location.id === updatedItem.id
+                ? {
+                    ...location,
+                    address: updatedItem.customerAddress,
+                  }
+                : location
+            ),
         };
       })
     );
 
-    setEditOnRoutePrqDialog({
+    setEditOnRouteItemDialog({
       open: false,
       routeId: '',
-      prq: null,
+      item: null,
     });
-    toast.success(`PRQ ${updatedPrq.referenceId} updated successfully.`);
+    toast.success(`${updatedItem.type} ${updatedItem.referenceId} updated successfully.`);
   };
 
   const addVehicleDisabled =
@@ -2280,7 +2304,7 @@ const SmartTripCreationPage = () => {
                               <TableCell>
                                 <div className="space-y-1">
                                   <p className="text-sm font-medium">{item.customerName}</p>
-                                  {item.type === 'PRQ' ? (
+                                  {item.pocName || item.pocPhone ? (
                                     <p className="text-xs text-muted-foreground">
                                       POC: {item.pocName || '-'} {item.pocPhone ? `| ${item.pocPhone}` : ''}
                                     </p>
@@ -2291,23 +2315,21 @@ const SmartTripCreationPage = () => {
                                 <p className="line-clamp-2 text-sm text-muted-foreground">{item.customerAddress}</p>
                               </TableCell>
                               <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                                {item.type === 'PRQ' ? item.pickupSlot : 'Delivery window in route plan'}
+                                {item.type === 'PRQ'
+                                  ? item.pickupSlot || '-'
+                                  : item.appointmentSlot || 'Delivery window in route plan'}
                               </TableCell>
                               <TableCell className="whitespace-nowrap">{item.estimatedWeight}</TableCell>
                               <TableCell>{item.status}</TableCell>
                               <TableCell className="text-right">
-                                {item.type === 'PRQ' ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleOpenOnRoutePrqEditor(selectedOnRouteVehicle.id, item)}
-                                  >
-                                    <PencilLine className="mr-1.5 h-4 w-4" />
-                                    Edit
-                                  </Button>
-                                ) : (
-                                  <span className="text-sm text-muted-foreground">-</span>
-                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenOnRouteItemEditor(selectedOnRouteVehicle.id, item)}
+                                >
+                                  <PencilLine className="mr-1.5 h-4 w-4" />
+                                  Edit
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -2380,17 +2402,17 @@ const SmartTripCreationPage = () => {
         onSubmit={handleConfirmCnRemoval}
       />
 
-      <EditOnRoutePrqDialog
-        open={editOnRoutePrqDialog.open}
+      <EditOnRouteItemDialog
+        open={editOnRouteItemDialog.open}
         onOpenChange={(open) =>
-          setEditOnRoutePrqDialog((currentDialog) => ({
+          setEditOnRouteItemDialog((currentDialog) => ({
             ...currentDialog,
             open,
-            ...(open ? {} : { routeId: '', prq: null }),
+            ...(open ? {} : { routeId: '', item: null }),
           }))
         }
-        prq={editOnRoutePrqDialog.prq}
-        onSave={handleSaveOnRoutePrq}
+        item={editOnRouteItemDialog.item}
+        onSave={handleSaveOnRouteItem}
       />
     </div>
   );
