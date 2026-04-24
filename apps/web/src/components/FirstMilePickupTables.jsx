@@ -116,8 +116,6 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
             <TableHead>Customer Name</TableHead>
             <TableHead>Customer Location</TableHead>
             <TableHead>POC Contact</TableHead>
-            <TableHead>Operator Contact</TableHead>
-            <TableHead>Driver Contact</TableHead>
             <TableHead>Expected Load</TableHead>
             <TableHead>Call Status</TableHead>
             <TableHead>PRQ Status</TableHead>
@@ -141,12 +139,6 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
                 <TableCell>
                   <ContactCell contact={pickup.poc} />
                 </TableCell>
-                <TableCell>
-                  <ContactCell contact={pickup.operatorContact} />
-                </TableCell>
-                <TableCell>
-                  <ContactCell contact={pickup.driverContact} />
-                </TableCell>
                 <TableCell className="whitespace-nowrap">{pickup.expectedLoad}</TableCell>
                 <TableCell className="text-muted-foreground min-w-[170px]">{pickup.callStatus}</TableCell>
                 <TableCell>
@@ -161,7 +153,7 @@ export const PotentialPickupsTable = ({ data, onViewMap, onEdit }) => (
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={15} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
                 No potential pickups available.
               </TableCell>
             </TableRow>
@@ -182,8 +174,6 @@ export const RequestedPickupsTable = ({ data, onEdit, onViewMap }) => (
             <TableHead>Customer</TableHead>
             <TableHead>Customer Address</TableHead>
             <TableHead>Contact Name &amp; No.</TableHead>
-            <TableHead>Operator Contact</TableHead>
-            <TableHead>Driver Contact</TableHead>
             <TableHead>Pickup Slot</TableHead>
             <TableHead>Est. Weight</TableHead>
             <TableHead>Load Type</TableHead>
@@ -205,12 +195,6 @@ export const RequestedPickupsTable = ({ data, onEdit, onViewMap }) => (
                 <TableCell>
                   <ContactCell contact={pickup.contact} />
                 </TableCell>
-                <TableCell>
-                  <ContactCell contact={pickup.operatorContact} />
-                </TableCell>
-                <TableCell>
-                  <ContactCell contact={pickup.driverContact} />
-                </TableCell>
                 <TableCell className="whitespace-nowrap">{formatDateTime(pickup.pickupSlot)}</TableCell>
                 <TableCell className="whitespace-nowrap">{pickup.estimatedWeight}</TableCell>
                 <TableCell>{pickup.loadType}</TableCell>
@@ -226,7 +210,7 @@ export const RequestedPickupsTable = ({ data, onEdit, onViewMap }) => (
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                 No regular pickups available.
               </TableCell>
             </TableRow>

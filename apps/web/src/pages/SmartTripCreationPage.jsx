@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import BreadcrumbNav from '@/components/BreadcrumbNav';
 import BayOperationalDetailsView from '@/components/BayOperationalDetailsView';
+import DRSReconciliationDialog from '@/components/DRSReconciliationDialog';
 import MapView from '@/components/MapView';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,6 +56,7 @@ import {
   summarizeTripForView,
 } from '@/lib/smartTripUtils';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -1637,6 +1639,17 @@ const SmartTripCreationPage = () => {
     PRQ: [],
     CN: [],
   });
+  const [reassignDialog, setReassignDialog] = useState({
+    open: false,
+    tripId: null,
+    vehicleId: '',
+  });
+  const [marketRequestDialog, setMarketRequestDialog] = useState({
+    open: false,
+    tripId: null,
+    reason: '',
+  });
+  const [drsReconciliationTripId, setDrsReconciliationTripId] = useState(null);
 
   const smartTripDrivers = useMemo(() => getSmartTripDrivers(), []);
   const smartTripVehicles = useMemo(() => getSmartTripVehicles(), []);
@@ -1647,7 +1660,12 @@ const SmartTripCreationPage = () => {
     () =>
       trips
         .map((trip) => summarizeTripForView(trip, tripView))
-        .filter((trip) => trip.cardStops.length > 0),
+        .filter((trip) => trip.cardStops.length > 0)
+        .sort((a, b) => {
+          const timeA = parseInt(a.idleDispatchTime) || 0;
+          const timeB = parseInt(b.idleDispatchTime) || 0;
+          return timeA - timeB;
+        }),
     [tripView, trips]
   );
 
@@ -1927,6 +1945,109 @@ const SmartTripCreationPage = () => {
     toast.success(`${unpickedPrqs.length} unpicked PRQ(s) removed and returned to the bucket.`);
   };
 
+  const removeSingleUnpickedPrqFromTrip = (tripId, itemId) => {
+    const tripToUpdate = trips.find(t => t.id === tripId) || onRouteVehicles.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const unpickedPrq = (tripToUpdate.stops || tripToUpdate.routeItems || []).find(
+      (stop) => stop.id === itemId && stop.type === 'PRQ' && !String(stop.status || '').toLowerCase().includes('picked')
+    );
+
+    if (!unpickedPrq) return;
+
+    const removedLog = {
+      stopId: unpickedPrq.id,
+      reason: 'Unpicked PRQ returned to bucket from route manifest',
+      removedAt: new Date().toISOString()
+    };
+
+    setTrips(currentTrips => currentTrips.map(trip => {
+      if (trip.id !== tripId) return trip;
+      return {
+        ...trip,
+        stops: (trip.stops || []).filter(stop => stop.id !== unpickedPrq.id),
+        removedStopLogs: [...(trip.removedStopLogs || []), removedLog]
+      };
+    }));
+
+    setOnRouteVehicles(currentVehicles => currentVehicles.map(trip => {
+      if (trip.id !== tripId) return trip;
+      return {
+        ...trip,
+        routeItems: (trip.routeItems || []).filter(stop => stop.id !== unpickedPrq.id),
+        takenLocations: (trip.takenLocations || []).filter(stop => stop.id !== unpickedPrq.id),
+        removedStopLogs: [...(trip.removedStopLogs || []), removedLog]
+      };
+    }));
+
+    setRouteExceptionBuckets((prev) => ({
+      ...prev,
+      PRQ: [
+        {
+          ...unpickedPrq,
+          status: 'Rescheduled',
+          removedFromRouteId: tripToUpdate.id,
+          removedFromRouteName: tripToUpdate.routeName || tripToUpdate.id,
+          returnedToBucketAt: new Date().toISOString()
+        },
+        ...prev.PRQ,
+      ]
+    }));
+
+    toast.success(`PRQ ${unpickedPrq.referenceId || unpickedPrq.id} returned to the regular bucket.`);
+  };
+
+  const handleReportBreakdown = (tripId) => {
+    setOnRouteVehicles(current => current.map(trip => 
+      trip.id === tripId ? { ...trip, isBreakdown: true } : trip
+    ));
+    toast.error("Vehicle Breakdown Reported. KOM and Customer notified.");
+  };
+
+  const handleCancelBreakdown = (tripId) => {
+    setOnRouteVehicles(current => current.map(trip => 
+      trip.id === tripId ? { ...trip, isBreakdown: false } : trip
+    ));
+    toast.info("Breakdown report cancelled.");
+  };
+
+  const handleReassignVehicle = (tripId) => {
+    setReassignDialog({ open: true, tripId, vehicleId: '' });
+  };
+
+  const handleRequestMarketVehicle = (tripId) => {
+    setMarketRequestDialog({ open: true, tripId, reason: '' });
+  };
+
+  const submitReassignVehicle = () => {
+    if (!reassignDialog.vehicleId) {
+      toast.error("Please select a replacement vehicle.");
+      return;
+    }
+    const vehicle = smartTripVehicles.find(v => v.id === reassignDialog.vehicleId);
+    setOnRouteVehicles(current => current.map(trip => 
+      trip.id === reassignDialog.tripId ? { 
+        ...trip, 
+        isBreakdown: false, 
+        vehicleNumber: vehicle?.number || reassignDialog.vehicleId 
+      } : trip
+    ));
+    toast.success("Vehicle reassigned successfully.");
+    setReassignDialog({ open: false, tripId: null, vehicleId: '' });
+  };
+
+  const submitMarketRequest = () => {
+    if (!marketRequestDialog.reason.trim()) {
+      toast.error("Please provide a reason for the market request.");
+      return;
+    }
+    setOnRouteVehicles(current => current.map(trip => 
+      trip.id === marketRequestDialog.tripId ? { ...trip, isBreakdown: false } : trip
+    ));
+    toast.success("Market Vehicle Request raised successfully.");
+    setMarketRequestDialog({ open: false, tripId: null, reason: '' });
+  };
+
   const handleDeleteStop = (stop) => {
     if (!stop) return;
 
@@ -2115,6 +2236,10 @@ const SmartTripCreationPage = () => {
   };
 
   const handleCloseTrip = (tripId) => {
+    setDrsReconciliationTripId(tripId);
+  };
+
+  const submitTripClosure = (tripId) => {
     updateTrip(tripId, (trip) => ({
       ...trip,
       reconciliation: {
@@ -2125,6 +2250,7 @@ const SmartTripCreationPage = () => {
       },
     }));
 
+    setDrsReconciliationTripId(null);
     toast.success('Trip closed successfully.');
   };
 
@@ -2437,10 +2563,19 @@ const SmartTripCreationPage = () => {
             {visibleLoadingProgress.map((item) => (
               <Card 
                 key={item.id} 
-                className="cursor-pointer border-border/80 shadow-sm transition-colors hover:border-primary/50"
+                className={cn(
+                  "cursor-pointer shadow-sm transition-colors hover:border-primary/50 relative overflow-hidden",
+                  item.isOnHold ? "border-amber-500 border-2" : "border-border/80"
+                )}
                 onClick={() => setSelectedLoadingCartId(item.id)}
               >
-                <CardContent className="p-6 space-y-6">
+                {item.isOnHold && (
+                  <div className="absolute top-0 left-0 right-0 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider text-center py-1 flex items-center justify-center gap-1.5 z-10">
+                    <AlertTriangle className="h-3 w-3" />
+                    Loading on hold for &gt; 30 mins
+                  </div>
+                )}
+                <CardContent className={cn("p-6 space-y-6", item.isOnHold && "pt-10")}>
                   <div className="flex items-center gap-8 border-b border-dashed pb-6">
                     <div className="flex items-center gap-3">
                       <div className="flex bg-emerald-50 text-emerald-600 h-11 w-11 items-center justify-center rounded-full shrink-0">
@@ -2597,15 +2732,39 @@ const SmartTripCreationPage = () => {
                 return (
                   <Card 
                     key={item.id} 
-                    className="border-border/80 shadow-sm flex flex-col relative overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                    className={cn(
+                      "shadow-sm flex flex-col relative overflow-hidden cursor-pointer transition-colors hover:border-primary/50",
+                      item.isBreakdown ? "border-destructive border-2" : "border-border/80"
+                    )}
                     onClick={() => setSelectedOnRouteId(item.id)}
                   >
                     <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: cardColor }}></div>
-                    <CardHeader className="pb-2 pt-3 px-4">
-                      <CardTitle className="text-base">{item.routeName}</CardTitle>
-                      <CardDescription className="text-xs">{item.vehicleNumber} | Driver: {item.driverName}</CardDescription>
+                    <CardHeader className="pb-2 pt-3 px-4 flex flex-row items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          {item.routeName}
+                          {item.isBreakdown && (
+                            <span className="inline-flex items-center rounded-md bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive ring-1 ring-inset ring-destructive/20">
+                              <AlertTriangle className="mr-1 h-3 w-3" /> Breakdown
+                            </span>
+                          )}
+                        </CardTitle>
+                        <CardDescription className="text-xs mt-1">{item.vehicleNumber} | Driver: {item.driverName}</CardDescription>
+                      </div>
                     </CardHeader>
                     <CardContent className="flex-1 px-4 pb-4">
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold mb-1">
+                          <span className="text-muted-foreground">Vehicle Load</span>
+                          <span className={cn(item.vehicleUtilization > 100 ? "text-destructive" : "text-green-600")}>
+                            {item.vehicleUtilization || 0}%
+                          </span>
+                        </div>
+                        <Progress 
+                          value={item.vehicleUtilization || 0} 
+                          className={cn("h-1.5", (item.vehicleUtilization || 0) > 100 ? "[&>div]:bg-destructive" : "[&>div]:bg-green-500")} 
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-2 text-xs h-full content-start">
                         <div className="rounded-lg border bg-muted/20 px-2 py-1.5">
                           <p className="text-muted-foreground text-[9px] uppercase tracking-wider font-semibold">Distance</p>
@@ -2640,16 +2799,80 @@ const SmartTripCreationPage = () => {
                           <p className="mt-0.5 font-semibold">{item.cashCollectedActual} <span className="text-muted-foreground font-normal text-[10px]">/ {item.cashCollectedProjected}</span></p>
                         </div>
                       </div>
-                      <div className="mt-4 flex justify-end border-t border-dashed pt-4">
-                        <Button
-                          size="sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleAddPrqToOnRouteVehicle(item);
-                          }}
-                        >
-                          Add PRQ
-                        </Button>
+                      <div className="mt-4 flex justify-end gap-2 border-t border-dashed pt-4 flex-wrap">
+                        {item.isBreakdown ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleCancelBreakdown(item.id);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-primary border-primary/30 hover:bg-primary/10"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleReassignVehicle(item.id);
+                              }}
+                            >
+                              Reassign Vehicle
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-primary text-primary-foreground hover:bg-primary/90"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleRequestMarketVehicle(item.id);
+                              }}
+                            >
+                              Request Market Vehicle
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            {item.vehicleUtilization > 100 && (item.routeItems || []).some(s => s.type === 'PRQ' && !String(s.status || '').toLowerCase().includes('picked')) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  removeUnpickedPrqsFromTrip(item.id);
+                                }}
+                              >
+                                Remove Unpicked PRQs
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-amber-600 border-amber-600/30 hover:bg-amber-600/10"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleReportBreakdown(item.id);
+                              }}
+                            >
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Breakdown
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleAddPrqToOnRouteVehicle(item);
+                              }}
+                            >
+                              Add PRQ
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -2761,6 +2984,16 @@ const SmartTripCreationPage = () => {
                               <TableCell className="whitespace-nowrap">{item.estimatedWeight}</TableCell>
                               <TableCell>{item.status}</TableCell>
                               <TableCell className="text-right">
+                                {item.type === 'PRQ' && !String(item.status || '').toLowerCase().includes('picked') ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mr-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                    onClick={() => removeSingleUnpickedPrqFromTrip(selectedOnRouteVehicle.id, item.id)}
+                                  >
+                                    Remove
+                                  </Button>
+                                ) : null}
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -2854,6 +3087,89 @@ const SmartTripCreationPage = () => {
         availableRoutes={onRouteVehicles}
         currentRouteId={editOnRouteItemDialog.routeId}
         onSave={handleSaveOnRouteItem}
+      />
+
+      <Dialog
+        open={reassignDialog.open}
+        onOpenChange={(open) => setReassignDialog(prev => ({ ...prev, open }))}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Reassign Vehicle</DialogTitle>
+            <DialogDescription>
+              Select a replacement vehicle for this route.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="vehicle">Available Vehicles</Label>
+              <Select
+                value={reassignDialog.vehicleId}
+                onValueChange={(val) => setReassignDialog(prev => ({ ...prev, vehicleId: val }))}
+              >
+                <SelectTrigger id="vehicle">
+                  <SelectValue placeholder="Select vehicle..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {smartTripVehicles.map(v => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.number} ({v.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignDialog(prev => ({ ...prev, open: false }))}>
+              Cancel
+            </Button>
+            <Button onClick={submitReassignVehicle}>
+              Confirm Reassignment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={marketRequestDialog.open}
+        onOpenChange={(open) => setMarketRequestDialog(prev => ({ ...prev, open }))}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Request Market Vehicle</DialogTitle>
+            <DialogDescription>
+              Provide a reason to request a new vehicle from the market source.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Reason for Request</Label>
+              <Textarea
+                id="reason"
+                placeholder="e.g. Engine failure, flat tire..."
+                value={marketRequestDialog.reason}
+                onChange={(e) => setMarketRequestDialog(prev => ({ ...prev, reason: e.target.value }))}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMarketRequestDialog(prev => ({ ...prev, open: false }))}>
+              Cancel
+            </Button>
+            <Button onClick={submitMarketRequest}>
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <DRSReconciliationDialog
+        open={!!drsReconciliationTripId}
+        onOpenChange={(open) => !open && setDrsReconciliationTripId(null)}
+        trip={trips.find(t => t.id === drsReconciliationTripId)}
+        onCloseDRS={submitTripClosure}
       />
     </div>
   );
